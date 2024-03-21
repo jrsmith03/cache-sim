@@ -32,16 +32,22 @@ int main(int argc, char* argv[]) {
 	Joule energy = 0;
 	Time time = 0;
 	Trace trace(argv[1]);
+	if (trace.trace_fd == -1) {
+		printf("error: invalid filename\n");
+		return -1;
+	}
+	int nums = 0;
 
+
+	trace.next_instr();
 	// This implementation has a single memory controller which is omnipotent and
 	// controls the flow
-	while (trace.has_next_instr()) {
-		Instruction instr = trace.next_instr();
+	while (trace.has_next_instr) {
 
 		// Switch based on operation from parser.
-		switch (instr.op) {
+		switch (trace.instructions[trace.last_ins].op) {
 			case READ: {
-				Eviction status = l1d.read(instr.address); // Updates state of reg
+				Eviction status = l1d.read((void*)trace.instructions[trace.last_ins].address); // Updates state of reg
 				switch (status) {
 					case HIT: {
 						// Hit. Simple case
@@ -64,7 +70,8 @@ int main(int argc, char* argv[]) {
 		// update state
 		energy += (l1d.idle_power + l1i.idle_power + l2.idle_power + dram.idle_power) * CYCLE_TIME;
 		time += CYCLE_TIME;
+		trace.next_instr();
 	}
 
-	// We're done print contents
+	// // We're done print contents
 }

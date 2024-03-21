@@ -8,3 +8,8 @@ csim:
 
 clean:
 	rm ${EXEC}
+
+test:
+	rm ${EXEC}
+	make
+	./csim 008.espresso.din
