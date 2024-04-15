@@ -28,8 +28,9 @@ using Joule = u64;
 
 enum Eviction : u8 {
 	HIT,
-	DIRTY,
-	CLEAN
+	MISS_VALID,
+	INVALID_CLEANDIRTY,
+	INVALID_CLEANCLEAN
 };
 
 // A single cache line. The smallest unit of the cache.

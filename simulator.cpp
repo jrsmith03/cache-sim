@@ -1,6 +1,8 @@
 #include "parser.hpp"
+#include "mem_control.cpp"
 #include "cache.hpp"
 #include <cstdio>
+// #include <list>
 
 #define KHz(num) ((num)*1000UL)
 #define MHz(num) (KHz(num)*1000UL)
@@ -24,10 +26,10 @@ int main(int argc, char* argv[]) {
 	// Maybe take input and output here.
 	// Would be good to initialize caches from parser.
 	// Memory is not byte addressable in this design. It is 64 byte addressable.
-	Cache dram(GiB(8), 1, 64, ns(50), mW(800), W(4), pJ(640));
-	Cache l2(KiB(256), 4, 64, ns(5), mW(800), W(2), pJ(5));
-	Cache l1d(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0));
-	Cache l1i(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0));
+	std::vector<Cache> memory_hierarchy{(Cache l1d(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0)),
+			Cache l1i(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0)),
+			Cache l2(KiB(256), 4, 64, ns(5), mW(800), W(2), pJ(5)),
+			Cache dram(GiB(8), 1, 64, ns(50), mW(800), W(4), pJ(640)))};
 
 	Joule energy = 0;
 	Time time = 0;
@@ -39,6 +41,15 @@ int main(int argc, char* argv[]) {
 	int nums = 0;
 
 
+	/*
+		for each instruction
+			READ
+				check L1 - if it's there, we're done
+				continue checking each level. If we find the data, the penaltiy is total time
+			WRITE
+			...
+	*/
+
 	trace.next_instr();
 	// This implementation has a single memory controller which is omnipotent and
 	// controls the flow
@@ -47,24 +58,18 @@ int main(int argc, char* argv[]) {
 		// Switch based on operation from parser.
 		switch (trace.instructions[trace.last_ins].op) {
 			case READ: {
-				Eviction status = l1d.read((void*)trace.instructions[trace.last_ins].address); // Updates state of reg
-				switch (status) {
-					case HIT: {
-						// Hit. Simple case
-						energy += (l1d.running_power - l1d.idle_power) * CYCLE_TIME;
-					}
-					case DIRTY: {
-						// TODO: I stopped here. Not thrilled with how this while loop is
-						// turning out. May change Cache API to only have `is_hit`, `put`,
-						// etc. 
-					}
-					case CLEAN:
-				}
+				mem_read(memory_hierarchy, trace);
 			}
-			case WRITE:
+			case WRITE: {
+				mem_write(memory_hierarchy, trace);
+			}
+
 			case FETCH:
+
 			case IGNORE:
+
 			case FLUSH:
+
 		}
 
 		// update state
