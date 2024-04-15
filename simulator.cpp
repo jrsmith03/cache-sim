@@ -58,7 +58,7 @@ int main(int argc, char* argv[]) {
 		// Switch based on operation from parser.
 		switch (trace.instructions[trace.last_ins].op) {
 			case READ: {
-				mem_read(memory_hierarchy, trace);
+				mem_read(memory_hierarchy,(void*)trace.instructions[trace.last_ins].value, (void*)trace.instructions[trace.last_ins].address);
 			}
 			case WRITE: {
 				mem_write(memory_hierarchy, trace);
