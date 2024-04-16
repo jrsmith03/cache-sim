@@ -1,8 +1,8 @@
 #include "parser.hpp"
-#include "mem_control.cpp"
+#include "memcontrol.hpp"
 #include "cache.hpp"
-#include <cstdio>
-// #include <list>
+
+#include "simulator.hpp"
 
 #define KHz(num) ((num)*1000UL)
 #define MHz(num) (KHz(num)*1000UL)
@@ -12,9 +12,6 @@
 #define MiB(num) (KiB(num)*1024UL)
 #define GiB(num) (MiB(num)*1024UL)
 
-using Freq = u64;
-const Freq CLOCK_SPEED = GHz(2);
-const Time CYCLE_TIME = s(1) / CLOCK_SPEED;
 
 // Think of this main as the memory controller.
 int main(int argc, char* argv[]) {
@@ -40,28 +37,20 @@ int main(int argc, char* argv[]) {
 	}
 	int nums = 0;
 
-
-	/*
-		for each instruction
-			READ
-				check L1 - if it's there, we're done
-				continue checking each level. If we find the data, the penaltiy is total time
-			WRITE
-			...
-	*/
-
 	trace.next_instr();
 	// This implementation has a single memory controller which is omnipotent and
 	// controls the flow
 	while (trace.has_next_instr) {
 
 		// Switch based on operation from parser.
+		// Call into the Memory Controller to handle everything.
 		switch (trace.instructions[trace.last_ins].op) {
 			case READ: {
-				mem_read(memory_hierarchy,(void*)trace.instructions[trace.last_ins].value, (void*)trace.instructions[trace.last_ins].address);
+				mem_read(0, &energy, L1d, memory_hierarchy ,(void*)trace.instructions[trace.last_ins].value, 
+							(void*)trace.instructions[trace.last_ins].address);
 			}
 			case WRITE: {
-				mem_write(memory_hierarchy, trace);
+				mem_write(&energy, memory_hierarchy, trace);
 			}
 
 			case FETCH:

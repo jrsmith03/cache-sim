@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "ratio": "cpp",
-        "type_traits": "cpp"
-    }
+        "type_traits": "cpp",
+        "*.tcc": "cpp"
+    },
+    "C_Cpp.default.compilerPath": "/home/altair/cache-sim/Makefile"
 }

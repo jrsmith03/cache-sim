@@ -1,46 +1,44 @@
 #include "parser.hpp"
-#include "mem_control.cpp"
+#include "memcontrol.hpp"
+#include "cache.hpp"
+#include "simulator.hpp"
 
-enum mem_index {
-    L1d,
-    L1i,
-    L2,
-    DRAM
-}
-void mem_read(std::vector memory_hierarchy, uint64_t value, uint64_t addr) {
+#include <vector>
+
+
+void mem_read(int start_pos, std::vector memory_hierarchy, void* value, void* addr, Joule* energy) {
     // We are going to loop until we get to the data in Cache or until we find it in DRAM
-    for (int mem_index = 0; mem_index < memory_hierarchy.size(); mem_index++) {
+    for (int mem_index = start_pos; mem_index < DRAM; mem_index++) {
         Cache c = memory_hierarchy[mem_index];
-        Eviction status == c.read(addr); // Updates state of reg
-        switch (status) {
+        Eviction status = c.read(addr); // Updates state of reg
+        if (status == HIT) {
             // R1
-            case HIT: {
-                // Hit. Simple case
-                energy += (c.running_power - c.idle_power) * CYCLE_TIME;
-                break;
-            }
-            // R2a - Fetch memory block from DRAM and place it in the available line set.
-            case MISS_VALID: {
-                // Means that we need to see if the data is in the next memory level
-                // If so, write 
+            *energy += (c.running_power - c.idle_power) * CYCLE_TIME;
+            return;
+        } 
+        // energy += something because we missed at a level
+    }
+    
+    // The read was a failure, enducing the R2 state.
+    // Update all levels of the cache.
+    memory_hierarchy[L2].write_miss(addr, value);
+    memory_hierarchy[L1d].write_miss(addr, value);
 
-                // We can assume it's always present in DRAM
-                if (mem_index == DRAM) {
-                    c.
-                }
-                Eviction next_level == memory_hierarchy[mem_index+1].read(address); 
+    // todo: figure out the energy calculation here
+    energy += (c.running_power - c.idle_power) * CYCLE_TIME;
+}
 
-            }
-
-            // R2b
-            case INVALID_DIRTY: {
-                // TODO: I stopped here. Not thrilled with how this while loop is
-                // turning out. May change Cache API to only have `is_hit`, `put`,
-                // etc. 
-            }
-            case INVALID_CLEAN: {
-
-            }
+void mem_write(int start_idx, std::vector memory_hierarchy, void* value, void* addr, Joule* energy) {
+    for (int mem_index = start_idx; mem_index < DRAM; mem_index++) {
+        Status x = memory_hierarchy[start_idx].write_hit(addr, value);
+        if (x == SUCCESS) {
+            // update energies
+            return;
         }
     }
+    // This is now case W2, where we did not get a hit anywhere in the cache.
+    // Bring data into the L2 cache from DRAM and trickle it down (like Reagan) to L1.
+    memory_hierarchy[DRAM].write_dram(addr, value);
+    memory_hierarchy[L2].write_miss(addr, value);
+    memory_hierarchy[L1d].write_miss(addr, value);
 }

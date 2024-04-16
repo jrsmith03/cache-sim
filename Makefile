@@ -1,4 +1,4 @@
-SRC = parser.cpp cache.cpp simulator.cpp
+SRC = parser.cpp cache.cpp simulator.cpp mem_control.cpp
 EXEC = csim
 CC = g++
 CFLAGS = -Wall -Werror -O3

@@ -29,8 +29,13 @@ using Joule = u64;
 enum Eviction : u8 {
 	HIT,
 	MISS_VALID,
-	INVALID_CLEANDIRTY,
-	INVALID_CLEANCLEAN
+	INVALID_DIRTY,
+	INVALID_CLEAN
+};
+
+enum Status : u8 {
+	SUCCESS,
+	FAILURE
 };
 
 // A single cache line. The smallest unit of the cache.
@@ -39,12 +44,16 @@ struct Line {
 	// Assumes tag is always <= 62 bits
 	//      [dirty | valid | tag]
 	// bits: 63    | 62    | 61..0
-	u64 metadata; 
+	// u64 metadata; 
 
 	Line();
-	u64 tag();
-	bool is_dirty();
-	bool is_valid();
+	// u64 tag();
+	u64 tag;
+	u64 data[64];
+	bool dirty;
+	bool valid;
+	// bool is_dirty();
+	// bool is_valid();
 	bool tag_matches(u64 tag);
 	void set_line(u64 tag, bool dirty, bool valid);
 };
