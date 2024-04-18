@@ -1,7 +1,9 @@
 #include "cache.hpp"
+#include "memcontrol.hpp"
+
 #include <new>
 #include <cmath>
-#include "memcontrol.hpp"
+#include <cstring>
 
 // Line::Line() : metadata(0) {}
 
@@ -10,7 +12,7 @@
 // }
 
 Line::Line() : dirty(false), valid(false), tag(0) {
-  void* data[64];
+  u64* data[64];
   for (int i = 0; i < 64; i++) {
     data[i] = nullptr;
   }
@@ -23,16 +25,16 @@ Line::Line() : dirty(false), valid(false), tag(0) {
 // }
 
 // bool Line::is_dirty() {
-// 	return this.metadata >> 63
+// 	return metadata >> 63
 // }
 
 // void Line::set_dirty() {
-// 	return this.metadata >> 63
+// 	return metadata >> 63
 // }
 
-inline bool Line::tag_matches(u64 tag) {
-	return this->tag() == tag;
-}
+// inline bool Line::tag_matches(u64 tag) {
+// 	return tag() == tag;
+// }
 
 Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
              Watt idle_power, Watt running_power, Joule transfer_penalty)
@@ -41,10 +43,10 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
       idle_power(idle_power), running_power(running_power),
       transfer_penalty(transfer_penalty),
       lines(new Line[associativity * block_size]) {
-          n = log2(this.block_size);
-          k = log2(this.associativity);
-          m = 64;
-          tag_size = m - k - n;
+          int n = log2(block_size);
+          int k = log2(associativity);
+          int m = 64;
+          int tag_size = m - k - n;
 
       }
 
@@ -52,100 +54,93 @@ Cache::~Cache() {
 	delete[] this->lines;
 }
 
-Eviction Cache::read(void* addr) {
-  uint64_t offset = addr & (1 << this.n) - 1;
-  uint64_t index = (addr >> this.n) & ((1 << (this.m - this.k - this.n)) - 1);
-  uint64_t tag = addr >> (this.k + this.n); 
+Cache_Info Cache::get_info(u64* addr) {
+  Cache_Info info;
+  info.offset = (*addr & (1 << n) - 1);
+  info.index = (*addr >> n) & ((1 << (m - k - n)) - 1);
+  info.tag = *addr >> (k + n); 
+  info.cache_index = info.index * associativity;
+}
+
+Eviction Cache::read(u64* addr) {
+  Cache_Info info = get_info(addr);
 
   // Index is the first line within the set. 
   // We must check all elements of the desired set to see if there is a hit.
-  uint64_t cache_index = index * this.associativity;
+  u64 cache_index = info.index * associativity;
   bool miss_valid = false;
   bool invalid_clean = false;
 
-  for (int i = 0; i < this.associativity; i++) {
-    if(this.lines[cache_index + i].tag == tag) {
-      return HIT;
+  for (int i = 0; i < associativity; i++) {
+    if(lines[cache_index + i].tag == info.tag) {
+      return R_HIT;
     } 
   }
-  return MISS;
+  return R_MISS;
 }
 
 // Deal with only the W1 case, where we get a hit on the given level of cache.
 // This is to preserve the abstraction.
-Status Cache::write_hit(void* addr, void* value) {
-  uint64_t offset = addr & (1 << this.n) - 1;
-  uint64_t index = (addr >> this.n) & ((1 << (this.m - this.k - this.n)) - 1);
-  uint64_t tag = addr >> (this.k + this.n); 
-  uint64_t cache_index = index * this.associativity;
+Eviction Cache::write_hit(u64* addr, u64* value) {
+  Cache_Info info = get_info(addr);
 
-
-  for (int i = 0; i < this.associativity; i++) {
-      if(this.lines[cache_index + i].tag == tag) {
-        if (this.lines[cache_index + i].dirty) {
+  for (int i = 0; i < associativity; i++) {
+      if (lines[info.cache_index + i].tag == info.tag) {
+        if (lines[info.cache_index + i].dirty) {
 
         } else {
-          this.lines[cache_index + i].dirty = true;
-          memcpy(this.lines[cache_index + i].data, value, 64);
-          return WRITE_HIT;
+          lines[info.cache_index + i].dirty = true;
+          memcpy(lines[info.cache_index + i].data, value, 64);
+          return W_HIT;
         }
       } 
   }
   // It is not in the given cache level, so the controller will have to try a write on the next level.
-  return WRITE_MISS;
+  return W_MISS;
 }
-
-
 
 // This function is invoked by the memory controller only when we know that
 // an eviction has to occur (i.e. at the current cache set, there are no lines that match the tag)
-void Cache::write_miss(void* addr, void* value) {
-    uint64_t offset = addr & (1 << this.n) - 1;
-    uint64_t index = (addr >> this.n) & ((1 << (this.m - this.k - this.n)) - 1);
-    uint64_t tag = addr >> (this.k + this.n);
-
-    uint64_t cache_index = index * this.associativity;
-
-    for (int i = 0; i < this.associativity; i++) {
-      if(this.lines[cache_index + i].valid == valid) {
+void Cache::write_miss(u64* addr, u64* value) {
+    Cache_Info info = get_info(addr);
+    
+    for (int i = 0; i < associativity; i++) {
+      if(lines[info.cache_index + i].valid == true) {
         // If we encounter a valid line in the set, use that.
-        if (this.lines[cache_index + i].dirty) {
+        if (lines[info.cache_index + i].dirty) {
 
         } else {
-          this.lines[cache_index + i].dirty = true;
-          memcpy(this.lines[cache_index + i].data, value, 64);
+          lines[info.cache_index + i].dirty = true;
+          memcpy(lines[info.cache_index + i].data, value, 64);
           return;
         }
       } 
     }
     // We must apply a Random eviction scheme.
     // TODO: FOR NOW, I'M JUST GOING TO EVICT THE FIRST LINE IN THE SET. CHANGE!!
-    // uint64_t victim_index = cache_index + (rand() % this.associativity);
-    uint64_t victim_index = cache_index;
+    // u64 victim_index = cache_index + (rand() % associativity);
+    u64 victim_index = info.cache_index;
 
-    if (this.lines[victim_index].dirty) {
+    if (lines[victim_index].dirty) {
 
     } else {
-      this.lines[victim_index].dirty = true;
-      memcpy(this.lines[victim_index].data, value, 64);
+      lines[victim_index].dirty = true;
+      memcpy(lines[victim_index].data, value, 64);
     }
 
     // This is the first time the data has ever been written.
-    this.lines[victim_index].tag = tag;
-    this.lines[victim_index].valid = true;
-    this.lines[victim_index].dirty = true; // Write-back cache
+    lines[victim_index].tag = info.tag;
+    lines[victim_index].valid = true;
+    lines[victim_index].dirty = true; // Write-back cache
     return;
 }
 
-void Cache::write_dram(void* addr, void* value) {
-    uint64_t offset = addr & (1 << this.n) - 1;
-    uint64_t index = (addr >> this.n) & ((1 << (this.m - this.k - this.n)) - 1);
-    uint64_t tag = addr >> (this.k + this.n);
-    uint64_t cache_index = index * this.associativity;
+void Cache::write_dram(u64* addr, u64* value) {
+    Cache_Info info = get_info(addr);
   
     // This is the first time the data has ever been written.
-    memcpy(this.lines[cache_index].data, value, 64);
-    this.lines[cache_index].tag = tag;
-    this.lines[cache_index].valid = true;
-    this.lines[cache_index].dirty = true; // Write-back cache
+    memcpy(lines[info.cache_index].data, value, 64);
+    lines[info.cache_index].tag = info.tag;
+    lines[info.cache_index].valid = true;
+    lines[info.cache_index].dirty = true; // Write-back cache
 }

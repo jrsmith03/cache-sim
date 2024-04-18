@@ -27,10 +27,10 @@ using Joule = u64;
 #define J(num) (mJ(num)*1000UL)
 
 enum Eviction : u8 {
-	HIT,
-	MISS_VALID,
-	INVALID_DIRTY,
-	INVALID_CLEAN
+	R_HIT,
+	R_MISS,
+	W_HIT,
+	W_MISS,
 };
 
 enum Status : u8 {
@@ -38,6 +38,12 @@ enum Status : u8 {
 	FAILURE
 };
 
+struct Cache_Info {
+	u64 tag;
+	u64 offset;
+	u64 index;
+	u64 cache_index;
+};
 // A single cache line. The smallest unit of the cache.
 struct Line {
 	// A packed data store of a cache line.
@@ -71,12 +77,18 @@ struct Cache {
 	Watt idle_power, running_power;
 	Joule transfer_penalty;
 	Line* lines; // The cache is simply a collection of lines.
-
+	int n, k, m, tag_size;
 	Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
 		Watt idle_power, Watt running_power, Joule transfer_penalty);
 	~Cache();
-	Eviction read(void* addr);
-	Eviction write(void* addr);
+	Eviction read(uint64_t* addr);
+	Eviction write_hit(uint64_t* addr, uint64_t* value);
+
+	void write_dram(uint64_t* addr, uint64_t* value);
+	void write_miss(uint64_t* addr, uint64_t* value);
+	Cache_Info get_info(uint64_t* addr);
+
+
 
 	Set get_set(u64 set_index);
 };

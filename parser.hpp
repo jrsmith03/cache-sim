@@ -28,6 +28,5 @@ struct Trace {
 	// std::vector<Instruction> instructions[1024];
 	Instruction *instructions = new Instruction[2];
 	Instruction next_instr(); // method to add to the instruction array
-	// bool has_next_instr();
 	bool has_next_instr;
 };

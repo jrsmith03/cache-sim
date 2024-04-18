@@ -5,13 +5,12 @@
 
 #include <vector>
 
-
-void mem_read(int start_pos, std::vector memory_hierarchy, void* value, void* addr, Joule* energy) {
+void mem_read(int start_pos, std::vector<Cache> memory_hierarchy, u64* value, u64* addr, Joule* energy) {
     // We are going to loop until we get to the data in Cache or until we find it in DRAM
     for (int mem_index = start_pos; mem_index < DRAM; mem_index++) {
         Cache c = memory_hierarchy[mem_index];
         Eviction status = c.read(addr); // Updates state of reg
-        if (status == HIT) {
+        if (status == R_HIT) {
             // R1
             *energy += (c.running_power - c.idle_power) * CYCLE_TIME;
             return;
@@ -25,12 +24,12 @@ void mem_read(int start_pos, std::vector memory_hierarchy, void* value, void* ad
     memory_hierarchy[L1d].write_miss(addr, value);
 
     // todo: figure out the energy calculation here
-    energy += (c.running_power - c.idle_power) * CYCLE_TIME;
+    // energy += (c.running_power - c.idle_power) * CYCLE_TIME;
 }
 
-void mem_write(int start_idx, std::vector memory_hierarchy, void* value, void* addr, Joule* energy) {
+void mem_write(int start_idx, std::vector<Cache> memory_hierarchy, u64* value, u64* addr, Joule* energy) {
     for (int mem_index = start_idx; mem_index < DRAM; mem_index++) {
-        Status x = memory_hierarchy[start_idx].write_hit(addr, value);
+        Eviction x = memory_hierarchy[start_idx].write_hit(addr, value);
         if (x == SUCCESS) {
             // update energies
             return;

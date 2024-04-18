@@ -1,7 +1,7 @@
 SRC = parser.cpp cache.cpp simulator.cpp mem_control.cpp
 EXEC = csim
 CC = g++
-CFLAGS = -Wall -Werror -O3
+CFLAGS = -Wall -Werror -O3 -Wno-c++11-extensions
 
 csim: 
 	${CC} -o ${EXEC} ${SRC}
