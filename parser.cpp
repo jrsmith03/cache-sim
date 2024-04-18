@@ -20,7 +20,7 @@ Trace::Trace(char* filename) {
 
 
 
-Instruction Trace::next_instr() {
+void Trace::next_instr() {
     if (this->trace_fd != 0) {
         // todo: memory management
         char *read_buf = (char*)malloc(18);
@@ -43,6 +43,7 @@ Instruction Trace::next_instr() {
         this->instructions[this->last_ins].op = (Op) atoi(strtok(read_buf, " "));
         this->instructions[this->last_ins].address = (u64) strtoull(strtok(NULL, " "), &end, 16); 
         this->instructions[this->last_ins++].value = (u64) strtoull(strtok(NULL, " "), &end, 16);
+        return;
     } else {
         printf("error: invalid filename");
         this->has_next_instr = false;

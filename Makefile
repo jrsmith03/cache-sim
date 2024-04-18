@@ -1,10 +1,12 @@
 SRC = parser.cpp cache.cpp simulator.cpp mem_control.cpp
 EXEC = csim
 CC = g++
-CFLAGS = -Wall -Werror -O3 -Wno-c++11-extensions
+# CFLAGS = -Wall -Werror -O3 
+CFLAGS = -g -O0
+
 
 csim: 
-	${CC} -o ${EXEC} ${SRC}
+	${CC} ${CFLAGS} -o ${EXEC} ${SRC}
 
 clean:
 	rm ${EXEC}
@@ -12,4 +14,4 @@ clean:
 test:
 	rm ${EXEC}
 	make
-	./csim 008.espresso.din
+	gdb ./csim

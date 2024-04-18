@@ -1,6 +1,7 @@
 #include "parser.hpp"
 #include "memcontrol.hpp"
 #include "cache.hpp"
+#include <cstdio>
 
 #include "simulator.hpp"
 
@@ -37,20 +38,35 @@ int main(int argc, char* argv[]) {
 
 		// Switch based on operation from parser.
 		// Call into the Memory Controller to handle everything.
-		switch (trace.instructions[trace.last_ins].op) {
+		switch (trace.instructions[--trace.last_ins].op) {
 			case READ: {
+				printf("read!\n");
+
 				mem_read(0, memory_hierarchy, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
+				break;
 			}
 
 			case WRITE: {
+				printf("write!\n");
+
 				mem_write(0, memory_hierarchy, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
+				break;
 			}
 
-			case FETCH:
+			case FETCH: {
+				printf("fetch!\n");
+				break;
+			}
 
-			case IGNORE:
+			case IGNORE: {
+				printf("ignore!\n");
+				break;
+			}
 
-			case FLUSH:
+			case FLUSH: {
+				printf("flush!\n");
+				break;
+			}
 
 		}
 
