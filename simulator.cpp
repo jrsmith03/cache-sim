@@ -46,8 +46,9 @@ int main(int argc, char* argv[]) {
         switch (trace.instructions[--trace.last_ins].op) {
             case READ: {
                 printf("read!\n");
-
-                mem_read(0, memory_hierarchy, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
+                
+                l1d.read(trace.instructions[trace.last_ins].value);
+                mem_read(0, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
                 break;
             }
 
