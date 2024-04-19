@@ -22,14 +22,11 @@ int main(int argc, char* argv[]) {
         printf("error: invalid filename\n");
         return -1;
     }
+    Cache dram = Cache(GiB(8), 1, 64, ns(50), mW(800), W(4), pJ(640), nullptr);
+    Cache l2 = Cache(KiB(256), 4, 64, ns(5), mW(800), W(2), pJ(5), &dram);
+    Cache l1d = Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0), &l2);
+    Cache l1i = Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0), &l2);
     
-    std::vector<Cache> memory_hierarchy{
-        Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0)), // l1d
-        Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0)), // l1i
-        Cache(KiB(256), 4, 64, ns(5), mW(800), W(2), pJ(5)), // l2
-        Cache(GiB(8), 1, 64, ns(50), mW(800), W(4), pJ(640)) // dram
-    };
-    Cache l1i = Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0)); // l1i
 
     // NOTE(Nate): I believe the easiest way to have :
     // 1. Have caches pass around pointers to the timer. They will update the

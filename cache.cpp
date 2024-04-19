@@ -15,18 +15,7 @@
 Line::Line()
     : valid(false) {}
 
-// bool Line::is_valid() {
-// 	// return (this->metadata << 1) >> 63
 
-// }
-
-// bool Line::is_dirty() {
-// 	return metadata >> 63
-// }
-
-// void Line::set_dirty() {
-// 	return metadata >> 63
-// }
 
 // inline bool Line::tag_matches(u64 tag) {
 // 	return tag() == tag;

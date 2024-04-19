@@ -55,13 +55,7 @@ struct Line {
     u64 tag;
     u64 data[64];
 
-    // u64 metadata; 
-
     Line();
-    // u64 tag();
-    // bool is_dirty();
-    // bool is_valid();
-    bool tag_matches(u64 tag);
     void set_line(u64 tag, bool dirty, bool valid);
 };
 
