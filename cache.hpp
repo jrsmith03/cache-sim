@@ -41,9 +41,12 @@ struct Line {
     // bits: 63    | 62    | 61..0
     bool valid;
     u64 tag;
-    u64 data[64];
+    // u64 data[64];
 
     Line();
+    bool is_valid();
+    void set_valid();
+    void set_invalid();
     void set_line(u64 tag, bool valid);
 };
 

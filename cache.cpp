@@ -5,8 +5,21 @@
 #include <cstring>
 #include <new>
 
-Line::Line()
-    : valid(false) {}
+Line::Line() : valid(false) {}
+
+bool Line::is_valid() {
+    return tag >> 63;
+}
+
+void Line::set_valid() {
+    this->tag |= 1UL << 63;
+    return;
+}
+
+void Line::set_invalid() {
+    this->tag &= ~(1UL << 63);
+    return;
+}
 
 Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     Watt idle_power, Watt running_power, Joule transfer_penalty,
@@ -82,8 +95,8 @@ void Cache::write(address addr, value val, Line* returned_line)
         if (is_dram || lines[index + i].tag == tag) {
             // Write hit
             this->hit++;
-            memcpy(&val, &this->lines[index + i].data, this->block_size);
-            this->lines[index + i].valid = true;
+            // memcpy(&val, &this->lines[index + i].data, this->block_size);
+            this->lines[index + i].set_valid();
                 
             parent->write(addr, val, nullptr); 
             if (returned_line) {
@@ -109,9 +122,10 @@ void Cache::write(address addr, value val, Line* returned_line)
 void Cache::put(Line* line, u64 set_index)
 {
     for (size_t i = 0; i < associativity; i++) {
-        if (lines[set_index + i].valid != true) {
+        if (!lines[set_index + i].is_valid()) {
             // Simply replace the lines.
             lines[set_index + i] = *line;
+            lines[set_index + i].set_valid();
             return;
         } 
     }
@@ -125,6 +139,7 @@ void Cache::put(Line* line, u64 set_index)
 
     // Update the line.
     lines[victim_index] = *line;
+    lines[victim_index].set_valid();
     // No need to update parent on read, since this is a write-through. Parent
     // will already be updated
     // this->parent->put(&lines[victim_index], set_index);
