@@ -51,7 +51,7 @@ int main(int argc, char* argv[]) {
         // Call into the Memory Controller to handle everything.
         switch (trace.instruction.op) {
             case READ: {
-                #ifndef NDEGUG
+                #ifndef NDEBUG
                 printf("read!\n");
                 #endif
                 
@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
             }
 
             case WRITE: {
-                #ifndef NDEGUG
+                #ifndef NDEBUG
                 printf("write!\n");
                 #endif
                 l1d.write(trace.instruction.address, trace.instruction.value, &val);
@@ -68,7 +68,7 @@ int main(int argc, char* argv[]) {
             }
 
             case FETCH: {
-                #ifndef NDEGUG
+                #ifndef NDEBUG
                 printf("fetch!\n");
                 #endif
                 // Note(Nate): Can we attempt a refactor like so? We simply ask
@@ -104,5 +104,16 @@ int main(int argc, char* argv[]) {
     // // We're done print contents
     u64 total_time = Cache::calcTotalTime(l1d, l1i, l2, dram); 
     printf("Run complete! Total time in ns: %lu\n", total_time);
+    printf("\
+Cache    RHits   RMiss   WHits   WMiss\n\
+L1d    %7lu %7lu %7lu %7lu\n\
+L1i    %7lu %7lu %7lu %7lu\n\
+L2     %7lu %7lu %7lu %7lu\n\
+DRAM   %7lu %7lu %7lu %7lu\n",
+        l1d.read_hits, l1d.read_misses, l1d.write_hits, l1d.write_misses,
+        l1i.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses,
+        l2.read_hits, l2.read_misses, l2.write_hits, l2.write_misses,
+        dram.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses
+    );
     return 0;
 }

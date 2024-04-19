@@ -5,7 +5,7 @@
 #include <cstring>
 #include <new>
 
-Line::Line() : valid(false) {}
+Line::Line() : tag(0) {}
 
 bool Line::is_valid() {
     return tag >> 63;
@@ -18,6 +18,17 @@ void Line::set_valid() {
 
 void Line::set_invalid() {
     this->tag &= ~(1UL << 63);
+    return;
+}
+
+u64 Line::get_tag() {
+    printf("TAG: %lx\n", this->tag & ~(1UL << 63));
+    return this->tag & ~(1UL << 63);
+}
+
+void Line::set_tag(u64 tag) {
+    this->tag &= ~(1UL << 63);
+    this->tag |= tag;
     return;
 }
 
@@ -43,6 +54,12 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     , running_power(running_power)
 {
 #ifndef NDEBUG
+    if (!this->parent) {
+        for (u64 i = 0; i < this->associativity * this->num_sets; i++) {
+            this->lines[i].set_valid();
+            this->lines[i].set_tag(i);
+        }
+    }
     printf("Cache b %lu a %lu s %lu t: %lu\n", block_bits, assoc_bits, 
             set_bits, tag_bits);
 #endif
@@ -69,9 +86,12 @@ void Cache::read(address addr, Line* returned_line)
     // Hit condition
     bool is_dram = !this->parent;
     for (u64 i = 0; i < associativity; i++) {
-        if (is_dram || (this->lines[index + i].tag == tag)) {
+        // TODO: CHECK VALID BIT YALL
+        printf("Address: %lx: tag:%lx\n", addr, tag);
+        if (is_dram || (this->lines[index + i].get_tag() == tag)) {
             this->read_hits++;
             // memcpy(returned_line, &lines[index + i], sizeof(Line));
+            this->lines[index + i].set_tag(tag);
             *returned_line = this->lines[index + i];
             return;
         }
@@ -80,7 +100,7 @@ void Cache::read(address addr, Line* returned_line)
     // Miss condition
     this->read_misses++;
     this->parent->read(addr, returned_line);
-    this->put(returned_line, index);
+    this->put(returned_line, index, tag);
     return;
 }   
 
@@ -93,11 +113,12 @@ void Cache::write(address addr, value val, Line* returned_line)
     bool is_dram = !this->parent;
 
     for (size_t i = 0; i < associativity; i++) {
-        if (is_dram || lines[index + i].tag == tag) {
+        if (is_dram || lines[index + i].get_tag() == tag) {
             // Write hit
             this->write_hits++;
             // memcpy(&val, &this->lines[index + i].data, this->block_size);
             this->lines[index + i].set_valid();
+            this->lines[index + i].set_tag(tag);
 
             if (!is_dram) {
                 parent->write(addr, val, nullptr); 
@@ -115,20 +136,21 @@ void Cache::write(address addr, value val, Line* returned_line)
     
     this->write_misses++;
     this->parent->write(addr, val, returned_line);
-    this->put(returned_line, index);
+    this->put(returned_line, index, tag);
     return;
 }
 
 // Place a line into the cache at a particular set index. Should the tags
 // not match AND there be no free lines in the cache, put will also cause
 // the cache to have an eviction and call put on the parent.
-void Cache::put(Line* line, u64 set_index)
+void Cache::put(Line* line, u64 set_index, u64 tag)
 {
     for (size_t i = 0; i < associativity; i++) {
         if (!lines[set_index + i].is_valid()) {
             // Simply replace the lines.
             lines[set_index + i] = *line;
             lines[set_index + i].set_valid();
+            lines[set_index + i].set_tag(tag);
             return;
         } 
     }

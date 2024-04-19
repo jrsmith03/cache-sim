@@ -39,7 +39,6 @@ struct Line {
     // Assumes tag is always <= 62 bits
     //      [dirty | valid | tag]
     // bits: 63    | 62    | 61..0
-    bool valid;
     u64 tag;
     // u64 data[64];
 
@@ -47,6 +46,8 @@ struct Line {
     bool is_valid();
     void set_valid();
     void set_invalid();
+    u64 get_tag();
+    void set_tag(u64 tag);
     void set_line(u64 tag, bool valid);
 };
 
@@ -65,7 +66,9 @@ private:
     Line* lines;
     Cache* parent;
     // Cache performance
+public:
     u64 read_hits, read_misses, write_hits, write_misses;
+private:
     // Used for calculations at the end of the sim
     Joule transfer_penalty;
     Watt idle_power, running_power; 
@@ -87,7 +90,7 @@ public:
     void write(address addr, value val, Line* line);
 
     // Replace a line in the cache
-    void put(Line* line, u64 set_index);
+    void put(Line* line, u64 set_index, u64 tag);
 
 
 
