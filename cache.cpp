@@ -58,7 +58,7 @@ void Cache::read(address addr, Line* returned_line)
     u64 index = (addr >> this->block_bits) & ((1 << (this->set_bits)) - 1UL);
     u64 tag = addr >> (this->set_bits + this->block_bits);
 
-    printf("offset: %lu index %lu tag: %lu", offset, index, tag);
+    printf("offset: %lu index %lu tag: %lu\n", offset, index, tag);
 
     // 1. Iterate through each tag of the cache's set to see whether the cache 
     //    contains this value.
@@ -66,7 +66,7 @@ void Cache::read(address addr, Line* returned_line)
     // 3. If cache does not contain value, read from parent cache.
 
     // Hit condition
-    bool is_dram = !parent;
+    bool is_dram = !this->parent;
     for (u64 i = 0; i < associativity; i++) {
         if (is_dram || (this->lines[index + i].tag == tag)) {
             this->hit++;
@@ -78,7 +78,7 @@ void Cache::read(address addr, Line* returned_line)
 
     // Miss condition
     this->miss++;
-    parent->read(addr, returned_line);
+    this->parent->read(addr, returned_line);
     this->put(returned_line, index);
     return;
 }   
@@ -89,7 +89,7 @@ void Cache::write(address addr, value val, Line* returned_line)
     // u64 offset = (addr & ((1UL << this->block_bits) - 1UL));
     u64 index = (addr >> this->block_bits) & ((1 << (this->set_bits)) - 1UL);
     u64 tag = addr >> (this->set_bits + this->block_bits);
-    bool is_dram = !parent;
+    bool is_dram = !this->parent;
 
     for (size_t i = 0; i < associativity; i++) {
         if (is_dram || lines[index + i].tag == tag) {
@@ -97,8 +97,10 @@ void Cache::write(address addr, value val, Line* returned_line)
             this->hit++;
             // memcpy(&val, &this->lines[index + i].data, this->block_size);
             this->lines[index + i].set_valid();
-                
-            parent->write(addr, val, nullptr); 
+
+            if (!is_dram) {
+                parent->write(addr, val, nullptr); 
+            }    
             if (returned_line) {
                 // If returned_line is null, that means the cache below has
                 // hit. Therefore, there is no need to return a value, because
@@ -111,7 +113,7 @@ void Cache::write(address addr, value val, Line* returned_line)
     }
     
     this->miss++;
-    this->write(addr, val, returned_line);
+    this->parent->write(addr, val, returned_line);
     this->put(returned_line, index);
     return;
 }

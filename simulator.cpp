@@ -95,6 +95,6 @@ int main(int argc, char* argv[]) {
 
     // // We're done print contents
     u64 total_time = Cache::calcTotalTime(l1d, l1i, l2, dram); 
-    printf("Run complete! Total time in ns: %lu", total_time);
+    printf("Run complete! Total time in ns: %lu\n", total_time);
     return 0;
 }
