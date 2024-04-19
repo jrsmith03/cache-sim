@@ -34,8 +34,10 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     , tag_bits(64 - block_bits - assoc_bits - set_bits)
     , lines(new Line[associativity * num_sets])
     , parent(parent)
-    , hit(0)
-    , miss(0)
+    , read_hits(0)
+    , read_misses(0)
+    , write_hits(0)
+    , write_misses(0)
     , transfer_penalty(transfer_penalty)
     , idle_power(idle_power)
     , running_power(running_power)
@@ -53,12 +55,11 @@ Cache::~Cache()
 
 void Cache::read(address addr, Line* returned_line)
 {
-    // Cache_Info info = get_info(addr);
-    u64 offset = (addr & ((1UL << this->block_bits) - 1UL));
+    // u64 offset = (addr & ((1UL << this->block_bits) - 1UL));
     u64 index = (addr >> this->block_bits) & ((1 << (this->set_bits)) - 1UL);
     u64 tag = addr >> (this->set_bits + this->block_bits);
 
-    printf("offset: %lu index %lu tag: %lu\n", offset, index, tag);
+    // printf("offset: %lu index %lu tag: %lu\n", offset, index, tag);
 
     // 1. Iterate through each tag of the cache's set to see whether the cache 
     //    contains this value.
@@ -69,7 +70,7 @@ void Cache::read(address addr, Line* returned_line)
     bool is_dram = !this->parent;
     for (u64 i = 0; i < associativity; i++) {
         if (is_dram || (this->lines[index + i].tag == tag)) {
-            this->hit++;
+            this->read_hits++;
             // memcpy(returned_line, &lines[index + i], sizeof(Line));
             *returned_line = this->lines[index + i];
             return;
@@ -77,7 +78,7 @@ void Cache::read(address addr, Line* returned_line)
     }
 
     // Miss condition
-    this->miss++;
+    this->read_misses++;
     this->parent->read(addr, returned_line);
     this->put(returned_line, index);
     return;
@@ -94,7 +95,7 @@ void Cache::write(address addr, value val, Line* returned_line)
     for (size_t i = 0; i < associativity; i++) {
         if (is_dram || lines[index + i].tag == tag) {
             // Write hit
-            this->hit++;
+            this->write_hits++;
             // memcpy(&val, &this->lines[index + i].data, this->block_size);
             this->lines[index + i].set_valid();
 
@@ -112,7 +113,7 @@ void Cache::write(address addr, value val, Line* returned_line)
         }
     }
     
-    this->miss++;
+    this->write_misses++;
     this->parent->write(addr, val, returned_line);
     this->put(returned_line, index);
     return;

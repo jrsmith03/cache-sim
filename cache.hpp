@@ -65,7 +65,7 @@ private:
     Line* lines;
     Cache* parent;
     // Cache performance
-    u64 hit, miss;
+    u64 read_hits, read_misses, write_hits, write_misses;
     // Used for calculations at the end of the sim
     Joule transfer_penalty;
     Watt idle_power, running_power; 
