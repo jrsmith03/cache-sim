@@ -76,7 +76,8 @@
         "iostream": "cpp",
         "ranges": "cpp",
         "thread": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "*.ipp": "cpp"
     },
     "C_Cpp.default.compilerPath": "/home/altair/cache-sim/Makefile"
 }

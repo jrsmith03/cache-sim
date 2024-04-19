@@ -26,7 +26,8 @@ struct Trace {
 	
 	u64 last_ins; // Index to the last read instruction 
 	// std::vector<Instruction> instructions[1024];
-	Instruction *instructions = new Instruction[2];
+	// Instruction *instructions = new Instruction[2];
+	Instruction instruction;
 	void next_instr(); // method to add to the instruction array
 	bool has_next_instr;
 };

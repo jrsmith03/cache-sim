@@ -1,12 +1,12 @@
-SRC = parser.cpp cache.cpp simulator.cpp mem_control.cpp
+SRC = parser.cpp cache.cpp simulator.cpp
 EXEC = csim
 CC = g++
 CFLAGS = -Wall -Werror
-OPTFLAGS = -O3
+OPTFLAGS = -O3 -DNEBUG
 
 .PHONY: debug release clean test
 
-debug: OPTFLAGS = -g3 -Og
+debug: OPTFLAGS = -g3 -O0
 debug: ${EXEC}
 
 release: ${EXEC}

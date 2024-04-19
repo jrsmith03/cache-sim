@@ -1,25 +1,12 @@
 #include "cache.hpp"
-#include "memcontrol.hpp"
 
 #include <cmath>
 #include <cstdio>
 #include <cstring>
 #include <new>
 
-// Line::Line() : metadata(0) {}
-
-// inline void Line::set_line(u64 tag, bool dirty, bool valid) {
-// 	this->metadata = ((u64)dirty << 63) | ((u64)valid << 62) | tag;
-// }
-
 Line::Line()
     : valid(false) {}
-
-
-
-// inline bool Line::tag_matches(u64 tag) {
-// 	return tag() == tag;
-// }
 
 Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     Watt idle_power, Watt running_power, Joule transfer_penalty,
@@ -28,18 +15,21 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     , associativity(associativity)
     , block_size(block_size)
     , num_sets(capacity / (associativity * block_size))
-    , latency(latency)
+    , block_bits(static_cast<u64>(log2(static_cast<double>(block_size))))
+    , set_bits(static_cast<u64>(log2(static_cast<double>(num_sets))))
+    , assoc_bits(static_cast<u64>(log2(static_cast<double>(associativity))))
+    , tag_bits(64 - block_bits - assoc_bits - set_bits)
+    , lines(new Line[associativity * num_sets])
+    , parent(parent)
+    , hit(0)
+    , miss(0)
+    , transfer_penalty(transfer_penalty)
     , idle_power(idle_power)
     , running_power(running_power)
-    , transfer_penalty(transfer_penalty)
-    , block_bits(static_cast<u64>(log2(static_cast<double>(block_size))))
-    , assoc_bits(static_cast<u64>(log2(static_cast<double>(associativity))))
-    , set_bits(static_cast<u64>(log2(static_cast<double>(num_sets))))
-    , tag_bits(64 - block_bits - assoc_bits - set_bits)
-    , lines(new Line[associativity * block_size])
 {
 #ifndef NDEBUG
-    printf("Cache b %lu a %lu s %lu t: %lu\n", block_bits, assoc_bits, set_bits, tag_bits);
+    printf("Cache b %lu a %lu s %lu t: %lu\n", block_bits, assoc_bits, 
+            set_bits, tag_bits);
 #endif
 }
 
@@ -48,105 +38,100 @@ Cache::~Cache()
     delete[] this->lines;
 }
 
-Cache_Info Cache::get_info(u64* addr)
-{
-    Cache_Info info;
-    info.offset = (*addr & ((1 << n) - 1));
-    info.index = (*addr >> n) & ((1 << (m - k - n)) - 1);
-    info.tag = *addr >> (k + n);
-    info.cache_index = info.index * associativity;
-}
-
-Eviction Cache::read(u64* addr)
+void Cache::read(address addr, Line* returned_line)
 {
     // Cache_Info info = get_info(addr);
-    // int offset = (*addr & (1 << n) - 1);
-    // int index = (*addr >> n) & ((1 << (m - k - n)) - 1);
-    // int tag = *addr >> (k + n);
-    int offset = log2(block_size);
-    int index = log2(associativity * block_size);
-    int tag = log2(log2(*addr) - index - offset);
-    printf("offset: %d index %d tag: %d", offset, index, tag);
+    u64 offset = (addr & ((1UL << this->block_bits) - 1UL));
+    u64 index = (addr >> this->block_bits) & ((1 << (this->set_bits)) - 1UL);
+    u64 tag = addr >> (this->set_bits + this->block_bits);
 
-    // Index is the first line within the set.
-    // We must check all elements of the desired set to see if there is a hit.
-    // u64 cache_index = index * associativity;
-    bool miss_valid = false;
-    bool invalid_clean = false;
+    printf("offset: %lu index %lu tag: %lu", offset, index, tag);
 
-    for (int i = 0; i < associativity; i++) {
-        if (lines[index + i].tag == tag) {
-            return R_HIT;
+    // 1. Iterate through each tag of the cache's set to see whether the cache 
+    //    contains this value.
+    // 2. If cache contains value: update time & energy and return.
+    // 3. If cache does not contain value, read from parent cache.
+
+    // Hit condition
+    bool is_dram = !parent;
+    for (u64 i = 0; i < associativity; i++) {
+        if (is_dram || (this->lines[index + i].tag == tag)) {
+            this->hit++;
+            // memcpy(returned_line, &lines[index + i], sizeof(Line));
+            *returned_line = this->lines[index + i];
+            return;
         }
     }
-    return R_MISS;
-}
 
-// Deal with only the W1 case, where we get a hit on the given level of cache.
-// This is to preserve the abstraction.
-Eviction Cache::write_hit(u64* addr, u64* value)
+    // Miss condition
+    this->miss++;
+    parent->read(addr, returned_line);
+    this->put(returned_line, index);
+    return;
+}   
+
+
+void Cache::write(address addr, value val, Line* returned_line)
 {
-    Cache_Info info = get_info(addr);
+    // u64 offset = (addr & ((1UL << this->block_bits) - 1UL));
+    u64 index = (addr >> this->block_bits) & ((1 << (this->set_bits)) - 1UL);
+    u64 tag = addr >> (this->set_bits + this->block_bits);
+    bool is_dram = !parent;
 
     for (size_t i = 0; i < associativity; i++) {
-        if (lines[info.cache_index + i].tag == info.tag) {
-            if (lines[info.cache_index + i].dirty) {
-
-            } else {
-                lines[info.cache_index + i].dirty = true;
-                memcpy(lines[info.cache_index + i].data, value, 64);
-                return W_HIT;
+        if (is_dram || lines[index + i].tag == tag) {
+            // Write hit
+            this->hit++;
+            memcpy(&val, &this->lines[index + i].data, this->block_size);
+            this->lines[index + i].valid = true;
+                
+            parent->write(addr, val, nullptr); 
+            if (returned_line) {
+                // If returned_line is null, that means the cache below has
+                // hit. Therefore, there is no need to return a value, because
+                // the cache below already has it! We are only calling write
+                // on its parent because we would like to update the value
+                *returned_line = this->lines[index + i];
             }
+            return;
         }
     }
-    // It is not in the given cache level, so the controller will have to try a write on the next level.
-    return W_MISS;
-}
-
-// This function is invoked by the memory controller only when we know that
-// an eviction has to occur (i.e. at the current cache set, there are no lines that match the tag)
-void Cache::write_miss(u64* addr, u64* value)
-{
-    Cache_Info info = get_info(addr);
-
-    for (size_t i = 0; i < associativity; i++) {
-        if (lines[info.cache_index + i].valid == true) {
-            // If we encounter a valid line in the set, use that.
-            if (lines[info.cache_index + i].dirty) {
-
-            } else {
-                lines[info.cache_index + i].dirty = true;
-                memcpy(lines[info.cache_index + i].data, value, 64);
-                return;
-            }
-        }
-    }
-    // We must apply a Random eviction scheme.
-    // TODO: FOR NOW, I'M JUST GOING TO EVICT THE FIRST LINE IN THE SET. CHANGE!!
-    // u64 victim_index = cache_index + (rand() % associativity);
-    u64 victim_index = info.cache_index;
-
-    if (lines[victim_index].dirty) {
-
-    } else {
-        lines[victim_index].dirty = true;
-        memcpy(lines[victim_index].data, value, 64);
-    }
-
-    // This is the first time the data has ever been written.
-    lines[victim_index].tag = info.tag;
-    lines[victim_index].valid = true;
-    lines[victim_index].dirty = true; // Write-back cache
+    
+    this->miss++;
+    this->write(addr, val, returned_line);
+    this->put(returned_line, index);
     return;
 }
 
-void Cache::write_dram(u64* addr, u64* value)
+// Place a line into the cache at a particular set index. Should the tags
+// not match AND there be no free lines in the cache, put will also cause
+// the cache to have an eviction and call put on the parent.
+void Cache::put(Line* line, u64 set_index)
 {
-    Cache_Info info = get_info(addr);
+    for (size_t i = 0; i < associativity; i++) {
+        if (lines[set_index + i].valid != true) {
+            // Simply replace the lines.
+            lines[set_index + i] = *line;
+            return;
+        } 
+    }
 
-    // This is the first time the data has ever been written.
-    memcpy(lines[info.cache_index].data, value, 64);
-    lines[info.cache_index].tag = info.tag;
-    lines[info.cache_index].valid = true;
-    lines[info.cache_index].dirty = true; // Write-back cache
+    // We must apply a Random eviction scheme.
+#ifndef NDEBUG /* DEBUG */
+    u64 victim_index = set_index;
+#else 
+    u64 victim_index = set_index + (rand() % associativity);
+#endif /* NDEBUG */
+
+    // Update the line.
+    lines[victim_index] = *line;
+    // No need to update parent on read, since this is a write-through. Parent
+    // will already be updated
+    // this->parent->put(&lines[victim_index], set_index);
+    return;
+}
+
+u64 Cache::calcTotalTime(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram) {
+    // TODO(Nate): WRITE ME!
+    return 0;
 }

@@ -33,30 +33,18 @@ enum Eviction : u8 {
     W_MISS,
 };
 
-enum Status : u8 {
-    SUCCESS,
-    FAILURE
-};
-
-struct Cache_Info {
-    u64 tag;
-    u64 offset;
-    u64 index;
-    u64 cache_index;
-};
 // A single cache line. The smallest unit of the cache.
 struct Line {
     // A packed data store of a cache line.
     // Assumes tag is always <= 62 bits
     //      [dirty | valid | tag]
     // bits: 63    | 62    | 61..0
-    bool dirty;
     bool valid;
     u64 tag;
     u64 data[64];
 
     Line();
-    void set_line(u64 tag, bool dirty, bool valid);
+    void set_line(u64 tag, bool valid);
 };
 
 // A set within the cache. A set is a pointer to the first line of the set.
@@ -68,19 +56,18 @@ struct Set {
 // The Cache itself. DRAM can also be represented as a direct mapped cache.
 struct Cache {
 private:
+    // Cache construction. A cache is simply a collection of lines.
     u64 capacity, associativity, block_size, num_sets;
-    Time latency;
-    Watt idle_power, running_power;
-    Joule transfer_penalty;
-    Line* lines; // The cache is simply a collection of lines.
     u64 block_bits, set_bits, assoc_bits, tag_bits; // NOTE(Nate): What are n, k, and m? Do they refer
-                        // to the number of bits needed to store block size, 
-                        // set size, and associativety. If so, which is 
-                        // which? 
+    Line* lines;
+    Cache* parent;
+    // Cache performance
+    u64 hit, miss;
+    // Used for calculations at the end of the sim
+    Joule transfer_penalty;
+    Watt idle_power, running_power; 
 
 public:
-    Joule power_consumption;
-    Cache* parent;
 
     Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
         Watt idle_power, Watt running_power, Joule transfer_penalty,
@@ -91,12 +78,15 @@ public:
     // benefit from passing them around as pointers. It may be more practical to
     // pass them around as `u64`s, or to define a datatype for an address. 
     typedef u64 address;
-    Eviction read(address addr);
-    Eviction write_hit(uint64_t* addr, uint64_t* value);
+    typedef u64 value;
 
-    void write_dram(uint64_t* addr, uint64_t* value);
-    void write_miss(uint64_t* addr, uint64_t* value);
-    
-    Cache_Info get_info(uint64_t* addr);
-    Set get_set(u64 set_index);
+    void read(address addr, Line* returned_line);
+    void write(address addr, value val, Line* line);
+
+    // Replace a line in the cache
+    void put(Line* line, u64 set_index);
+
+
+
+    static u64 calcTotalTime(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
 };

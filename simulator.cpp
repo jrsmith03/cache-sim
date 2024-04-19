@@ -1,5 +1,4 @@
 #include "parser.hpp"
-#include "memcontrol.hpp"
 #include "cache.hpp"
 #include <cstdio>
 
@@ -15,24 +14,31 @@ int main(int argc, char* argv[]) {
     // Maybe take input and output here.
     // Would be good to initialize caches from parser.
     // Memory is not byte addressable in this design. It is 64 byte addressable.
-    Joule energy = 0;
-    Time time = 0; // NOTE(Nate): Needed, but commented to solve compile err
     Trace trace(argv[1]);
     if (trace.trace_fd == -1) {
         printf("error: invalid filename\n");
         return -1;
     }
-    Cache dram = Cache(GiB(8), 1, 64, ns(50), mW(800), W(4), pJ(640), nullptr);
-    Cache l2 = Cache(KiB(256), 4, 64, ns(5), mW(800), W(2), pJ(5), &dram);
-    Cache l1d = Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0), &l2);
-    Cache l1i = Cache(KiB(32), 1, 64, ps(500), mW(500), W(1), J(0), &l2);
+
+    Time l1_time_penalty = ps(500); 
+    Time l2_time_penalty = ns(5) - l1_time_penalty; 
+    Time dram_time_penalty = ns(50) - l2_time_penalty; 
+
+    Joule l1_transfer_penalty = J(0);
+    Joule l2_transfer_penalty = pJ(5) - l1_transfer_penalty;
+    Joule dram_transfer_penalty = pJ(640) - l2_transfer_penalty;
+
+    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, nullptr);
+    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, &dram);
+    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, &l2);
+    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, &l2);
     
 
     // NOTE(Nate): I believe the easiest way to have :
     // 1. Have caches pass around pointers to the timer. They will update the
     //    timers based on their individual penalties.
     
-    // int nums = 0; // NOTE(Nate): What is this used for?
+    Line val;
 
     trace.next_instr();
     // This implementation has a single memory controller which is omnipotent 
@@ -43,19 +49,17 @@ int main(int argc, char* argv[]) {
 
         // Switch based on operation from parser.
         // Call into the Memory Controller to handle everything.
-        switch (trace.instructions[--trace.last_ins].op) {
+        switch (trace.instruction.op) {
             case READ: {
                 printf("read!\n");
                 
-                l1d.read(trace.instructions[trace.last_ins].value);
-                mem_read(0, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
+                l1d.read(trace.instruction.address, &val);
                 break;
             }
 
             case WRITE: {
                 printf("write!\n");
-
-                mem_write(0, memory_hierarchy, &trace.instructions[trace.last_ins].value, &trace.instructions[trace.last_ins].address, &energy);
+                l1d.write(trace.instruction.address, trace.instruction.value, &val);
                 break;
             }
 
@@ -66,9 +70,7 @@ int main(int argc, char* argv[]) {
                 // the rest because it knows its parents. This would avoid the
                 // need to pass around the memory heirarchy or the starting
                 // index of the mem heirarchy.
-                l1i.read((u64*) trace.instructions[trace.last_ins].value);
-
-                // mem_read(0, )
+                l1i.read(trace.instruction.value, &val);
                 break;
             }
 
@@ -92,4 +94,7 @@ int main(int argc, char* argv[]) {
     }
 
     // // We're done print contents
+    u64 total_time = Cache::calcTotalTime(l1d, l1i, l2, dram); 
+    printf("Run complete! Total time in ns: %lu", total_time);
+    return 0;
 }
