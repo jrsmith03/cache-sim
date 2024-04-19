@@ -1,17 +1,21 @@
 SRC = parser.cpp cache.cpp simulator.cpp mem_control.cpp
 EXEC = csim
 CC = g++
-# CFLAGS = -Wall -Werror -O3 
-CFLAGS = -g -O0
+CFLAGS = -Wall -Werror
+OPTFLAGS = -O3
 
+.PHONY: debug release clean test
 
-csim: 
-	${CC} ${CFLAGS} -o ${EXEC} ${SRC}
+debug: OPTFLAGS = -g3 -Og
+debug: ${EXEC}
+
+release: ${EXEC}
+
+${EXEC}: ${SRC}
+	${CC} ${CFLAGS} ${OPTFLAGS} -o ${EXEC} ${SRC} 
 
 clean:
-	rm ${EXEC}
+	rm -f ${EXEC}
 
-test:
-	rm ${EXEC}
-	make
+test: debug
 	gdb ./csim

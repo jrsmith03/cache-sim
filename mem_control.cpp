@@ -10,7 +10,6 @@ void mem_read(int start_pos, std::vector<Cache> memory_hierarchy, u64* value, u6
     // We are going to loop until we get to the data in Cache or until we find it in DRAM
     for (int mem_index = start_pos; mem_index < DRAM; mem_index++) {
         Eviction status = memory_hierarchy[mem_index].read(addr); // Updates state of reg
-        printf("hello?");
 
         if (status == R_HIT) {
             // R1
@@ -19,7 +18,6 @@ void mem_read(int start_pos, std::vector<Cache> memory_hierarchy, u64* value, u6
         } 
         // energy += something because we missed at a level
     }
-    printf("hello?");
     
     // The read was a failure, enducing the R2 state.
     // Update all levels of the cache.
@@ -33,7 +31,8 @@ void mem_read(int start_pos, std::vector<Cache> memory_hierarchy, u64* value, u6
 void mem_write(int start_idx, std::vector<Cache> memory_hierarchy, u64* value, u64* addr, Joule* energy) {
     for (int mem_index = start_idx; mem_index < DRAM; mem_index++) {
         Eviction x = memory_hierarchy[start_idx].write_hit(addr, value);
-        if (x == SUCCESS) {
+        // if (x == SUCCESS) { // NOTE(Nate): What's the intention here changing to fix compile error
+        if (x != Eviction::R_HIT) {
             // update energies
             return;
         }

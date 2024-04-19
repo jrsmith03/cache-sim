@@ -27,68 +27,82 @@ using Joule = u64;
 #define J(num) (mJ(num)*1000UL)
 
 enum Eviction : u8 {
-	R_HIT,
-	R_MISS,
-	W_HIT,
-	W_MISS,
+    R_HIT,
+    R_MISS,
+    W_HIT,
+    W_MISS,
 };
 
 enum Status : u8 {
-	SUCCESS,
-	FAILURE
+    SUCCESS,
+    FAILURE
 };
 
 struct Cache_Info {
-	u64 tag;
-	u64 offset;
-	u64 index;
-	u64 cache_index;
+    u64 tag;
+    u64 offset;
+    u64 index;
+    u64 cache_index;
 };
 // A single cache line. The smallest unit of the cache.
 struct Line {
-	// A packed data store of a cache line.
-	// Assumes tag is always <= 62 bits
-	//      [dirty | valid | tag]
-	// bits: 63    | 62    | 61..0
-	// u64 metadata; 
+    // A packed data store of a cache line.
+    // Assumes tag is always <= 62 bits
+    //      [dirty | valid | tag]
+    // bits: 63    | 62    | 61..0
+    bool dirty;
+    bool valid;
+    u64 tag;
+    u64 data[64];
 
-	Line();
-	// u64 tag();
-	u64 tag;
-	u64 data[64];
-	bool dirty;
-	bool valid;
-	// bool is_dirty();
-	// bool is_valid();
-	bool tag_matches(u64 tag);
-	void set_line(u64 tag, bool dirty, bool valid);
+    // u64 metadata; 
+
+    Line();
+    // u64 tag();
+    // bool is_dirty();
+    // bool is_valid();
+    bool tag_matches(u64 tag);
+    void set_line(u64 tag, bool dirty, bool valid);
 };
 
 // A set within the cache. A set is a pointer to the first line of the set.
 // Lines in a set exist contiguously in memory. 
 struct Set {
-	Line* lines;
+    Line* lines;
 };
 
 // The Cache itself. DRAM can also be represented as a direct mapped cache.
 struct Cache {
-	u64 capacity, associativity, block_size, num_sets;
-	Time latency;
-	Watt idle_power, running_power;
-	Joule transfer_penalty;
-	Line* lines; // The cache is simply a collection of lines.
-	int n, k, m, tag_size;
-	Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
-		Watt idle_power, Watt running_power, Joule transfer_penalty);
-	~Cache();
-	Eviction read(uint64_t* addr);
-	Eviction write_hit(uint64_t* addr, uint64_t* value);
+private:
+    u64 capacity, associativity, block_size, num_sets;
+    Time latency;
+    Watt idle_power, running_power;
+    Joule transfer_penalty;
+    Line* lines; // The cache is simply a collection of lines.
+    u64 block_bits, set_bits, assoc_bits, tag_bits; // NOTE(Nate): What are n, k, and m? Do they refer
+                        // to the number of bits needed to store block size, 
+                        // set size, and associativety. If so, which is 
+                        // which? 
 
-	void write_dram(uint64_t* addr, uint64_t* value);
-	void write_miss(uint64_t* addr, uint64_t* value);
-	Cache_Info get_info(uint64_t* addr);
+public:
+    Joule power_consumption;
+    Cache* parent;
 
+    Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
+        Watt idle_power, Watt running_power, Joule transfer_penalty,
+        Cache* parent = nullptr);
+    ~Cache();
+    
+    // Note(Nate): Though these are addresses we are simulating, we gain no
+    // benefit from passing them around as pointers. It may be more practical to
+    // pass them around as `u64`s, or to define a datatype for an address. 
+    typedef u64 address;
+    Eviction read(address addr);
+    Eviction write_hit(uint64_t* addr, uint64_t* value);
 
-
-	Set get_set(u64 set_index);
+    void write_dram(uint64_t* addr, uint64_t* value);
+    void write_miss(uint64_t* addr, uint64_t* value);
+    
+    Cache_Info get_info(uint64_t* addr);
+    Set get_set(u64 set_index);
 };
