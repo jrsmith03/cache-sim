@@ -2,7 +2,7 @@ SRC = parser.cpp cache.cpp simulator.cpp
 EXEC = csim
 CC = g++
 CFLAGS = -Wall -Werror
-OPTFLAGS = -O3 -DNEBUG
+OPTFLAGS = -O3 -DNDEBUG
 
 .PHONY: debug release clean test
 
