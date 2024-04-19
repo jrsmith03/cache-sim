@@ -111,7 +111,7 @@ DRAM   %7lu %7lu %7lu %7lu\n",
         l1d.read_hits, l1d.read_misses, l1d.write_hits, l1d.write_misses,
         l1i.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses,
         l2.read_hits, l2.read_misses, l2.write_hits, l2.write_misses,
-        dram.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses
+        dram.read_hits, dram.read_misses, dram.write_hits, dram.write_misses
     );
     return 0;
 }
