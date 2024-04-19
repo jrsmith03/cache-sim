@@ -51,20 +51,26 @@ int main(int argc, char* argv[]) {
         // Call into the Memory Controller to handle everything.
         switch (trace.instruction.op) {
             case READ: {
+                #ifndef NDEGUG
                 printf("read!\n");
+                #endif
                 
                 l1d.read(trace.instruction.address, &val);
                 break;
             }
 
             case WRITE: {
+                #ifndef NDEGUG
                 printf("write!\n");
+                #endif
                 l1d.write(trace.instruction.address, trace.instruction.value, &val);
                 break;
             }
 
             case FETCH: {
+                #ifndef NDEGUG
                 printf("fetch!\n");
+                #endif
                 // Note(Nate): Can we attempt a refactor like so? We simply ask
                 // the appropriate cache to perform the action, and it handles
                 // the rest because it knows its parents. This would avoid the
@@ -75,7 +81,9 @@ int main(int argc, char* argv[]) {
             }
 
             case IGNORE: {
+                #ifndef NDEBUG
                 printf("ignore!\n");
+                #endif
                 break;
             }
 

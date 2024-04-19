@@ -34,7 +34,7 @@ void Trace::next_instr() {
             // We have reached EOF
             if (read_char[0] == '\0' || bytes_read != 1) {
                 this->has_next_instr = false;
-                break;
+                return;
             }
             read_buf[pos++] = read_char[0];
         }
