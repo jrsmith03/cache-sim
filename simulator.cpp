@@ -38,8 +38,6 @@ int main(int argc, char* argv[]) {
     // 1. Have caches pass around pointers to the timer. They will update the
     //    timers based on their individual penalties.
     
-    Line val;
-
     trace.next_instr();
     // This implementation has a single memory controller which is omnipotent 
     // and controls the flow. 
@@ -55,7 +53,7 @@ int main(int argc, char* argv[]) {
                 printf("read!\n");
                 #endif
                 
-                l1d.read(trace.instruction.address, &val);
+                l1d.read(trace.instruction.address);
                 break;
             }
 
@@ -63,7 +61,7 @@ int main(int argc, char* argv[]) {
                 #ifndef NDEBUG
                 printf("write!\n");
                 #endif
-                l1d.write(trace.instruction.address, trace.instruction.value, &val);
+                l1d.write(trace.instruction.address, trace.instruction.value);
                 break;
             }
 
@@ -76,7 +74,7 @@ int main(int argc, char* argv[]) {
                 // the rest because it knows its parents. This would avoid the
                 // need to pass around the memory heirarchy or the starting
                 // index of the mem heirarchy.
-                l1i.read(trace.instruction.value, &val);
+                l1i.read(trace.instruction.address);
                 break;
             }
 

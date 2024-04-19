@@ -43,12 +43,12 @@ struct Line {
     // u64 data[64];
 
     Line();
-    bool is_valid();
+    bool is_valid() const;
     void set_valid();
     void set_invalid();
-    u64 get_tag();
+    u64 get_tag() const;
     void set_tag(u64 tag);
-    void set_line(u64 tag, bool valid);
+    void set(u64 tag, bool valid);
 };
 
 // A set within the cache. A set is a pointer to the first line of the set.
@@ -86,13 +86,13 @@ public:
     typedef u64 address;
     typedef u64 value;
 
-    void read(address addr, Line* returned_line);
-    void write(address addr, value val, Line* line);
+    const Line& read(address addr);
+    const Line& write(address addr, value val);
 
     // Replace a line in the cache
-    void put(Line* line, u64 set_index, u64 tag);
+private:
+    const Line& put(const Line& line, u64 set_index, u64 tag);
 
-
-
+public:
     static u64 calcTotalTime(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
 };

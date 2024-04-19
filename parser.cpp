@@ -25,7 +25,7 @@ void Trace::next_instr() {
     if (this->trace_fd != 0) {
         // todo: memory management
         char *read_buf = (char*)malloc(18);
-        char *read_char = (char*)malloc(1);
+        char *read_char = (char*)calloc(1, 1);
         char* end;
         int pos = 0;
         // Walk each line of input until it ends.
