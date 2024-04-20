@@ -2,3 +2,5 @@
 *.png
 *.rnote
 csim
+.vscode
+.gdb_history

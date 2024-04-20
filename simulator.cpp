@@ -20,6 +20,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    Time time = 0;
+
     Time l1_time_penalty = ps(500); 
     Time l2_time_penalty = ns(5) - l1_time_penalty; 
     Time dram_time_penalty = ns(50) - l2_time_penalty; 
@@ -28,10 +30,14 @@ int main(int argc, char* argv[]) {
     Joule l2_transfer_penalty = pJ(5) - l1_transfer_penalty;
     Joule dram_transfer_penalty = pJ(640) - l2_transfer_penalty;
 
-    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, nullptr);
-    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, &dram);
-    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, &l2);
-    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, &l2);
+    CacheFlags dram_flags = 0;
+    CacheFlags l2_flags = CacheFlagBits::ASYNC_WRITE | CacheFlagBits::CONSISTENCY_WRITE_BACK;
+    CacheFlags l1_flags = CacheFlagBits::SYNC_WRITE | CacheFlagBits::CONSISTENCY_WRITE_THROUGH;
+
+    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, time, nullptr);
+    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, time, &dram);
+    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, time, &l2);
+    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, time, &l2);
     
 
     // NOTE(Nate): I believe the easiest way to have :
@@ -100,7 +106,7 @@ int main(int argc, char* argv[]) {
     }
 
     // // We're done print contents
-    u64 total_time = Cache::calcTotalTime(l1d, l1i, l2, dram); 
+    Time total_time = Cache::calc_total_time(l1d, l1i, l2, dram); 
     printf("Run complete! Total time in ns: %lu\n", total_time);
     printf("\
 Cache    RHits   RMiss   WHits   WMiss\n\

@@ -26,13 +26,6 @@ using Joule = u64;
 #define mJ(num) (uJ(num)*1000UL)
 #define J(num) (mJ(num)*1000UL)
 
-enum Eviction : u8 {
-    R_HIT,
-    R_MISS,
-    W_HIT,
-    W_MISS,
-};
-
 // A single cache line. The smallest unit of the cache.
 struct Line {
     // A packed data store of a cache line.
@@ -51,6 +44,16 @@ struct Line {
     void set(u64 tag, bool valid);
 };
 
+using CacheFlags = u8;
+enum CacheFlagBits : CacheFlags {
+    // Cache consistency in bit 0
+    CONSISTENCY_WRITE_BACK = 0x0,
+    CONSISTENCY_WRITE_THROUGH = 0x1,
+    // Cache synchronization in bit 1
+    SYNC_WRITE = 0x2,
+    ASYNC_WRITE = 0x0,
+};
+
 // A set within the cache. A set is a pointer to the first line of the set.
 // Lines in a set exist contiguously in memory. 
 struct Set {
@@ -60,31 +63,35 @@ struct Set {
 // The Cache itself. DRAM can also be represented as a direct mapped cache.
 struct Cache {
 private:
-    // Cache construction. A cache is simply a collection of lines.
-    u64 capacity, associativity, block_size, num_sets;
-    u64 block_bits, set_bits, assoc_bits, tag_bits; // NOTE(Nate): What are n, k, and m? Do they refer
-    Line* lines;
-    Cache* parent;
-    // Cache performance
+    // Cache construction. A cache is simply a collection of lines. Determined
+    // at creation.
+    const u64 capacity, associativity, block_size, num_sets;
+    const u64 block_bits, set_bits, assoc_bits, tag_bits; 
+    Line* const lines;
+    Cache* const parent;
+    CacheFlags flags;
 public:
+    // Cache performance. Determined at runtime.
+    Time& time;
     u64 read_hits, read_misses, write_hits, write_misses;
 private:
     // Used for calculations at the end of the sim
-    Joule transfer_penalty;
-    Watt idle_power, running_power; 
+    const Joule transfer_penalty;
+    const Time latency;
+    const Watt idle_power, running_power; 
 
 public:
 
     Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
         Watt idle_power, Watt running_power, Joule transfer_penalty,
-        Cache* parent = nullptr);
+        CacheFlags flags, Time& time, Cache* parent = nullptr);
     ~Cache();
     
     // Note(Nate): Though these are addresses we are simulating, we gain no
     // benefit from passing them around as pointers. It may be more practical to
     // pass them around as `u64`s, or to define a datatype for an address. 
-    typedef u64 address;
-    typedef u64 value;
+    using address = u64;
+    using value = u64;
 
     const Line& read(address addr);
     const Line& write(address addr, value val);
@@ -94,5 +101,8 @@ private:
     const Line& put(const Line& line, u64 set_index, u64 tag);
 
 public:
-    static u64 calcTotalTime(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
+    static Time calc_total_time(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
+    Time calc_delays();
+    Time calc_active_time();
+    Time calc_idle_time();
 };

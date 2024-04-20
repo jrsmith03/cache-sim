@@ -42,7 +42,7 @@ void Line::set(u64 tag, bool is_valid) {
 
 Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     Watt idle_power, Watt running_power, Joule transfer_penalty,
-    Cache* parent)
+    CacheFlags flags, Time& time, Cache* parent)
     : capacity(capacity)
     , associativity(associativity)
     , block_size(block_size)
@@ -53,11 +53,14 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     , tag_bits(64 - block_bits - assoc_bits - set_bits)
     , lines(new Line[associativity * num_sets])
     , parent(parent)
+    , flags(flags)
+    , time(time)
     , read_hits(0)
     , read_misses(0)
     , write_hits(0)
     , write_misses(0)
     , transfer_penalty(transfer_penalty)
+    , latency(latency)
     , idle_power(idle_power)
     , running_power(running_power)
 {
@@ -181,7 +184,26 @@ const Line& Cache::put(const Line& line, u64 set_index, u64 tag)
     return victim_line;
 }
 
-u64 Cache::calcTotalTime(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram) {
-    // TODO(Nate): WRITE ME!
+Time Cache::calc_delays() {
+    Time delays = (this->read_hits + this->read_misses) * this->latency;
+    // writes are asynchronous and therefore have no extra delays
+    return delays;
+}
+
+Time Cache::calc_total_time(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram) {
+    // Time l1_read_delays = l1d.calc_delays() + l1i.calc_delays();
+    // Time l2_read_delays = l2.calc_delays();
+    // Time dram_read_delays = dram.calc_delays();
+    // Time write_delays = l1i.latency;
+    // // TODO(Nate): WRITE ME!
+    return 0;
+}
+
+Time Cache::calc_active_time() {
+    u64 total_accesses = this->read_hits + this->write_hits + this->write_misses + this->write_misses;
+    return total_accesses * this->latency;
+}
+
+Time Cache::calc_idle_time() {
     return 0;
 }
