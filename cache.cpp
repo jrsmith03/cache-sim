@@ -22,7 +22,7 @@ void Line::set_metadata_bit(u8 pos, bool value) {
 
 bool Line::get_metadata_bit(u8 pos) const {
     u64 temp = this->metadata >> pos;
-    return temp & ~(1UL);
+    return temp & 1UL;
 }
 
 bool Line::is_valid() const {
