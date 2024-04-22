@@ -100,7 +100,7 @@ int main(int argc, char* argv[]) {
     machine.in_flight_queue.flush();
 
     // // We're done print contents
-    Time total_time = Cache::calc_total_time(l1d, l1i, l2, dram); 
+    Time total_time = machine.time;
     printf("Run complete! Total time in ns: %lu\n", total_time);
     printf("\
 Cache    RHits   RMiss   WHits   WMiss\n\
