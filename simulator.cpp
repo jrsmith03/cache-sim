@@ -3,18 +3,38 @@
 #include <cstdio>
 
 #include "simulator.hpp"
+#include <string>
+#include <cstring>
 
-// Think of this main as the memory controller.
+
+std::string trace_name;
+int custom_assoc = 0;
+bool has_custom_assoc = false;
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        printf("Include file name of trace to run\n");
+        printf("Usage: csim -f <required, file name of trace> \n-a <associativity level, leave blank for default>\n");
         return -1;
+    } else if (argc == 2 || argc == 4) {
+        printf("Usage: csim -f <required, file name of trace> \n-a <associativity level, leave blank for default>\n");
+        return -1;
+    } else {
+        if (argc == 3 || strncmp(argv[1], "-f", 3) == 0) {
+            trace_name = argv[1];
+        }
+
+        if (argc == 5 && strncmp(argv[3], "-a", 3) == 0) {
+            has_custom_assoc = true;
+            custom_assoc =  atoi(argv[4]);
+        }
+    } 
     }
+    int al2 =  has_custom_assoc ? custom_assoc : 4; 
+    int al1i, al1d, adram = has_custom_assoc ? custom_assoc : 1; 
 
     // Maybe take input and output here.
     // Would be good to initialize caches from parser.
     // Memory is not byte addressable in this design. It is 64 byte addressable.
-    Trace trace(argv[1]);
+    Trace trace(trace_name);
     if (trace.trace_fd == -1) {
         printf("error: invalid filename\n");
         return -1;
@@ -34,10 +54,10 @@ int main(int argc, char* argv[]) {
     CacheFlags l2_flags = CacheFlagBits::SYNC_WRITE | CacheFlagBits::WRITE_BACK;
     CacheFlags l1_flags = CacheFlagBits::ASYNC_WRITE | CacheFlagBits::WRITE_THROUGH;
 
-    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, machine, nullptr);
-    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, machine, &dram);
-    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
-    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
+    Cache dram = Cache(GiB(8), adram, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, machine, nullptr);
+    Cache l2 = Cache(KiB(256), al2, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, machine, &dram);
+    Cache l1d = Cache(KiB(32), al1d, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
+    Cache l1i = Cache(KiB(32), al1i, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
 
     machine.caches.push_back(&dram);
     machine.caches.push_back(&l2);
