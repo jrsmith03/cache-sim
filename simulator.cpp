@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    Time time = 0;
+    Machine machine = Machine();
 
     Time l1_time_penalty = ps(500); 
     Time l2_time_penalty = ns(5) - l1_time_penalty; 
@@ -31,26 +31,21 @@ int main(int argc, char* argv[]) {
     Joule dram_transfer_penalty = pJ(640) - l2_transfer_penalty;
 
     CacheFlags dram_flags = 0;
-    CacheFlags l2_flags = CacheFlagBits::ASYNC_WRITE | CacheFlagBits::CONSISTENCY_WRITE_BACK;
-    CacheFlags l1_flags = CacheFlagBits::SYNC_WRITE | CacheFlagBits::CONSISTENCY_WRITE_THROUGH;
+    CacheFlags l2_flags = CacheFlagBits::SYNC_WRITE | CacheFlagBits::WRITE_BACK;
+    CacheFlags l1_flags = CacheFlagBits::ASYNC_WRITE | CacheFlagBits::WRITE_THROUGH;
 
-    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, time, nullptr);
-    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, time, &dram);
-    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, time, &l2);
-    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, time, &l2);
-    
+    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, machine, nullptr);
+    Cache l2 = Cache(KiB(256), 4, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, machine, &dram);
+    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
+    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
 
-    // NOTE(Nate): I believe the easiest way to have :
-    // 1. Have caches pass around pointers to the timer. They will update the
-    //    timers based on their individual penalties.
+    machine.caches.push_back(&dram);
+    machine.caches.push_back(&l2);
+    machine.caches.push_back(&l1d);
+    machine.caches.push_back(&l1i);
     
     trace.next_instr();
-    // This implementation has a single memory controller which is omnipotent 
-    // and controls the flow. 
-    // NOTE(Nate): This is an incorrect assumption. Each cache contains its own
-    // controller. If data is not in this cache, it sends it up the chain.
     while (trace.has_next_instr) {
-
         // Switch based on operation from parser.
         // Call into the Memory Controller to handle everything.
         switch (trace.instruction.op) {
@@ -75,11 +70,6 @@ int main(int argc, char* argv[]) {
                 #ifndef NDEBUG
                 printf("fetch!\n");
                 #endif
-                // Note(Nate): Can we attempt a refactor like so? We simply ask
-                // the appropriate cache to perform the action, and it handles
-                // the rest because it knows its parents. This would avoid the
-                // need to pass around the memory heirarchy or the starting
-                // index of the mem heirarchy.
                 l1i.read(trace.instruction.address);
                 break;
             }
@@ -91,7 +81,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            case FLUSH: { // NOTE(Nate): This is never used!
+            case FLUSH: { 
                 printf("This is a flush! This case should never be tested!. \
                     something has gone horribly wrong!\n");
                 break;
@@ -99,11 +89,15 @@ int main(int argc, char* argv[]) {
 
         }
 
-        // update state
-        // energy += (l1d.idle_power + l1i.idle_power + l2.idle_power + dram.idle_power) * CYCLE_TIME;
-        // time += CYCLE_TIME;
+        //NOTE(Nate): Not sure from here
+        if (!machine.waited_this_access) {
+            machine.advanceTime(CYCLE_TIME);
+        }
+        machine.waited_this_access = false;
+        //NOTE(Nate): To here. Because of writes.
         trace.next_instr();
     }
+    machine.in_flight_queue.flush();
 
     // // We're done print contents
     Time total_time = Cache::calc_total_time(l1d, l1i, l2, dram); 
