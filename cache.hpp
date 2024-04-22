@@ -4,6 +4,7 @@
 #include <list>
 #include <ratio>
 #include <queue>
+#include <string>
 
 // Time has a resolution of 1 picosecond, and should be set via a macro.
 using Time = u64; 
@@ -123,10 +124,7 @@ private:
     const Line& put(const Line& line, address addr, value val = 0);
 
 public:
-    static Time calc_total_time(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
-    Time calc_delays();
-    Time calc_active_time();
-    Time calc_idle_time();
+    Time calc_energy();
 };
 
 struct InFlightData {
@@ -159,7 +157,7 @@ struct InFlightQueue : public std::priority_queue<InFlightData, std::vector<InFl
 };
 
 struct Machine {
-    u64 time;
+    Time time;
     InFlightQueue in_flight_queue;
     std::vector<Cache*> caches;
     bool waited_this_access;
@@ -168,3 +166,5 @@ struct Machine {
     void advanceTime(Time duration);
     void wait_for_line(Cache* cache, u64 tag, u64 set_index);
 };
+
+std::string unit_to_string(u64 num, char unit);

@@ -173,10 +173,14 @@ const Line& Cache::write(const address addr, value val)
             if (this->is_write_back()) {
                 cur_line.set_dirty(true);
             } else if (this->is_write_through()) {
+                // TODO(Nate): This still troubles me
                 if (this->is_async_write()) { // Is this even possible?
                     this->machine.in_flight_queue.push_line(this, set_index, cur_line, this->latency);
                 }
                 parent->write(addr, val); 
+                if (this->is_sync_write()) {
+
+                }
             }
             return cur_line;
         }
@@ -243,6 +247,7 @@ const Line& Cache::put(const Line& line, address addr, value val)
         this->machine.wait_for_line(this, tag, set_index);
     }
     if (this->is_write_back() && victim_line->is_dirty()) {
+        this->dirty_evict_count++;
         this->parent->write(addr, val); // values in writes don't matter
     }
 
@@ -251,29 +256,14 @@ const Line& Cache::put(const Line& line, address addr, value val)
     return *victim_line;
 }
 
-Time Cache::calc_delays() {
-    Time delays = (this->read_hits + this->read_misses) * this->latency;
-    // writes are asynchronous and therefore have no extra delays
-    return delays;
+Time Cache::calc_energy() {
+    Joule static_energy = this->active_time * this->idle_power;
+    Joule active_energy = this->active_time * this->active_time;
+    u64 total_accesses = this->read_hits + this->read_misses + this->write_hits + this->write_misses;
+    Joule transfer_energy = total_accesses * this->transfer_penalty;
+    return static_energy + active_energy + transfer_energy;
 }
 
-Time Cache::calc_total_time(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram) {
-    // Time l1_read_delays = l1d.calc_delays() + l1i.calc_delays();
-    // Time l2_read_delays = l2.calc_delays();
-    // Time dram_read_delays = dram.calc_delays();
-    // Time write_delays = l1i.latency;
-    // // TODO(Nate): WRITE ME!
-    return 0;
-}
-
-Time Cache::calc_active_time() {
-    u64 total_accesses = this->read_hits + this->write_hits + this->write_misses + this->write_misses;
-    return total_accesses * this->latency;
-}
-
-Time Cache::calc_idle_time() {
-    return 0;
-}
 
 InFlightQueue::InFlightQueue(Time& machine_time) 
     : std::priority_queue<InFlightData, std::vector<InFlightData>, std::greater<InFlightData>>()
@@ -354,6 +344,14 @@ void Machine::advanceTime(const Time duration) {
         this->in_flight_queue.pop();
     }
 
+    const Time delta = advanced_time - this->time;
+    for (Cache* cache : this->caches) {
+        if (cache->in_flight_count > 0) {
+            cache->active_time += delta; 
+        }
+    }
+    this->time += delta;
+
     return;
 }
 
@@ -373,4 +371,35 @@ void Machine::wait_for_line(Cache* cache, u64 tag, u64 set_index) {
 
         this->advanceTime(top.finish_time - this->time);
     } while (tag != last_tag || set_index != last_set_index || cache != last_cache);
+}
+
+char calc_prefix(s8 exponent) {
+    char prefix;
+    switch (exponent) {
+        case -12: prefix = 'p'; break;
+        case -9: prefix = 'n'; break;
+        case -6: prefix = 'u'; break;
+        case -3: prefix = 'm'; break;
+        case 0: prefix = ' '; break;
+        case 3: prefix = 'k'; break;
+        case 6: prefix = 'M'; break;
+        case 9: prefix = 'G'; break;
+        case 12: prefix = 'T'; break;
+        default: prefix = '?'; break;
+    }
+    return prefix;
+}
+
+std::string unit_to_string(u64 value, char unit) {
+    s8 exponent = -12; // All nums have min resolution of 1 pico
+    u64 divisor = 1;
+    while ((value / divisor) > 1000) {
+        exponent += 3;
+        divisor *= 1000;
+    }
+
+    char prefix = calc_prefix(exponent);
+    u64 significand = value / divisor;
+    u64 mantissa    = value % divisor;
+    return std::to_string(significand) + '.' + std::to_string(mantissa) + ' ' + prefix + unit;
 }
