@@ -42,11 +42,11 @@ void Line::set_valid(bool is_valid) {
 }
 
 void Line::set_dirty(bool is_dirty) {
-    return this->set_metadata_bit(VALID_BIT, is_dirty);
+    return this->set_metadata_bit(DIRTY_BIT, is_dirty);
 }
 
 void Line::set_in_flight(bool is_in_flight) {
-    return this->set_metadata_bit(VALID_BIT, is_in_flight);
+    return this->set_metadata_bit(IN_FLIGHT_BIT, is_in_flight);
 }
 
 u64 Line::get_tag() const {
