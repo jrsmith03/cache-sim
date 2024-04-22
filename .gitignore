@@ -4,4 +4,5 @@
 csim
 Traces/
 .vscode
+__MACOSX/
 .gdb_history
