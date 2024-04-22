@@ -4,6 +4,7 @@
 #include <list>
 #include <ratio>
 #include <queue>
+#include <string>
 
 // Time has a resolution of 1 picosecond, and should be set via a macro.
 using Time = u64; 
@@ -13,15 +14,12 @@ using Time = u64;
 #define ms(num) (us(num)*1000UL)
 #define s(num) (ms(num)*1000UL)
 
-// Watts have a resolution of 1 picosecond, and should be set via a macro.
+// Watts have a resolution of 1 milliWatt. Watts are defined via a ratio.
 using Watt = u64;
-#define pW(num) (num)
-#define nW(num) (pW(num)*1000UL)
-#define uW(num) (nW(num)*1000UL)
-#define mW(num) (uW(num)*1000UL)
+#define mW(num) (num)
 #define W(num) (mW(num)*1000UL)
 
-// Joules have a resolution of 1 picosecond, and should be set via a macro.
+// Joules have a resolution of 1 picojoule, and should be set via a macro.
 using Joule = u64;
 #define pJ(num) (num)
 #define nJ(num) (pJ(num)*1000UL)
@@ -123,10 +121,7 @@ private:
     const Line& put(const Line& line, address addr, value val = 0);
 
 public:
-    static Time calc_total_time(Cache& l1d, Cache& l1i, Cache& l2, Cache& dram);
-    Time calc_delays();
-    Time calc_active_time();
-    Time calc_idle_time();
+    Time calc_energy();
 };
 
 struct InFlightData {
@@ -159,12 +154,14 @@ struct InFlightQueue : public std::priority_queue<InFlightData, std::vector<InFl
 };
 
 struct Machine {
-    u64 time;
+    Time time;
     InFlightQueue in_flight_queue;
     std::vector<Cache*> caches;
     bool waited_this_access;
 
     Machine();
-    void advanceTime(Time duration);
+    void advance_time(Time duration, Cache* active_cache = nullptr);
     void wait_for_line(Cache* cache, u64 tag, u64 set_index);
 };
+
+std::string unit_to_string(u64 value, char unit, s8 initial_exponent);
