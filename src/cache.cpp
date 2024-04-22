@@ -156,6 +156,7 @@ const Line& Cache::read(const address addr)
     const Line& read_line = this->parent->read(addr);
     const Line& replaced_line = this->put(read_line, addr);
     this->machine.advance_time(this->latency, this);
+    this->read(addr);
     return replaced_line;
 }
 
@@ -198,25 +199,27 @@ const Line& Cache::write(const address addr, value val)
     
     this->write_misses++;
     this->read_misses--; // Remove a read miss to avoid counting the read miss about to happen
+    this->read_hits--; // Remove a read miss to avoid counting the read miss about to happen
     this->read(addr); // Retrieve the correct line. This handles eviction and such.
-    for (size_t i = 0; i < this->associativity; i++) {
-        Line& cur_line = lines[set_index*associativity + i];
-        if (cur_line.is_valid() && cur_line.get_tag() == tag) {
-            // Write hit
-            if (this->is_write_back()) {
-                cur_line.set_dirty(true);
-            } else if (this->is_write_through()) {
-                if (this->is_async_write()) { // Is this even possible?
-                    this->machine.in_flight_queue.push_line(this, set_index, cur_line, this->latency);
-                }
-                parent->write(addr, val); 
-            }
-            return cur_line;
-        }
-    }
+    return this->write(addr, val);
+    // for (size_t i = 0; i < this->associativity; i++) {
+    //     Line& cur_line = lines[set_index*associativity + i];
+    //     if (cur_line.is_valid() && cur_line.get_tag() == tag) {
+    //         // Write hit
+    //         if (this->is_write_back()) {
+    //             cur_line.set_dirty(true);
+    //         } else if (this->is_write_through()) {
+    //             if (this->is_async_write()) { // Is this even possible?
+    //                 this->machine.in_flight_queue.push_line(this, set_index, cur_line, this->latency);
+    //             }
+    //             this->write(addr, val); 
+    //         }
+    //         return cur_line;
+    //     }
+    // }
 
-    /* UNREACHABLE */
-    return lines[0];
+    // /* UNREACHABLE */
+    // return lines[0];
 }
 
 // Place a line into the cache at a particular set index. Should the tags
