@@ -1,7 +1,6 @@
 #include "parser.hpp"
 #include "cache.hpp"
 #include <cstdio>
-
 #include "simulator.hpp"
 #include <string>
 #include <cstring>
@@ -31,9 +30,6 @@ int main(int argc, char* argv[]) {
     int al2 =  has_custom_assoc ? custom_assoc : 4; 
     int al1i, al1d, adram = has_custom_assoc ? custom_assoc : 1; 
 
-    // Maybe take input and output here.
-    // Would be good to initialize caches from parser.
-    // Memory is not byte addressable in this design. It is 64 byte addressable.
     Trace trace(trace_name);
     if (trace.trace_fd == -1) {
         printf("error: invalid filename\n");
