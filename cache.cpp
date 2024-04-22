@@ -268,7 +268,7 @@ const Line& Cache::put(const Line& line, address addr, value val)
 
 // Returns energy in femtoJoules. (due to picoseconds * milliwatts
 Joule Cache::calc_energy() {
-    Joule static_energy = this->active_time * this->idle_power;
+    Joule static_energy = this->machine.time * this->idle_power;
     Joule active_energy = this->active_time * this->active_time;
     u64 total_accesses = this->read_hits + this->read_misses + this->write_hits + this->write_misses;
     Joule transfer_energy = total_accesses * this->transfer_penalty;
