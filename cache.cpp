@@ -51,11 +51,11 @@ void Line::set_in_flight(bool is_in_flight) {
 }
 
 u64 Line::get_tag() const {
-    return this->metadata & ((1UL << (MAX_TAG_SIZE-1)) - 1);
+    return this->metadata & ((1UL << MAX_TAG_SIZE) - 1);
 }
 
 void Line::set_tag(u64 tag) {
-    this->metadata &= ~((1UL << (MAX_TAG_SIZE-1)) - 1);
+    this->metadata &= ~((1UL << MAX_TAG_SIZE) - 1);
     this->metadata |= tag;
     return;
 }
@@ -65,7 +65,7 @@ void Line::set_metadata(u64 tag, bool is_valid, bool is_dirty, bool is_in_flight
         (static_cast<u64>(is_valid) << VALID_BIT) | 
         (static_cast<u64>(is_dirty) << DIRTY_BIT) | 
         (static_cast<u64>(is_in_flight) << IN_FLIGHT_BIT) | 
-        (tag & (1UL << (MAX_TAG_SIZE - 1)));
+        (tag & ((1UL << MAX_TAG_SIZE) - 1));
     return;
 }
 
