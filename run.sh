@@ -1,6 +1,7 @@
 # Make sure that cache-sim is compiled
+cd src
 make release
-
+cd ..
 echo "Please specify the directory that contains the Spec benchmark traces."
 read benchmark_dir
 
