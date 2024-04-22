@@ -89,12 +89,13 @@ int main(int argc, char* argv[]) {
 
         }
 
-        //NOTE(Nate): Not sure from here
-        if (!machine.waited_this_access) {
-            machine.advanceTime(CYCLE_TIME);
-        }
-        machine.waited_this_access = false;
-        //NOTE(Nate): To here. Because of writes.
+        // NOTE(Nate): Not sure from here
+        // Choosing to assume that cycle penalty always applies on cache access
+        // if (!machine.waited_this_access) {
+        machine.advance_time(CYCLE_TIME);
+        // }
+        // machine.waited_this_access = false;
+        // NOTE(Nate): To here. Because of writes.
         trace.next_instr();
     }
     machine.in_flight_queue.flush();
@@ -106,8 +107,8 @@ int main(int argc, char* argv[]) {
         total_energy += cache->calc_energy();
     }
     printf("Run complete!\nTime: %s\nEnergy: %s\n\n", 
-        unit_to_string(total_time, 's').c_str(),
-        unit_to_string(total_energy, 'J').c_str()
+        unit_to_string(total_time, 's', -12).c_str(),
+        unit_to_string(total_energy, 'J', -15).c_str()
     );
     printf("\
 Cache    RHits   RMiss   WHits   WMiss Dirty_Evicts                  Time_Active                  Energy_Used\n\
@@ -115,10 +116,10 @@ L1d    %7lu %7lu %7lu %7lu %12lu %28s %28s\n\
 L1i    %7lu %7lu %7lu %7lu %12lu %28s %28s\n\
 L2     %7lu %7lu %7lu %7lu %12lu %28s %28s\n\
 DRAM   %7lu %7lu %7lu %7lu %12lu %28s %28s\n",
-        l1d.read_hits, l1d.read_misses, l1d.write_hits, l1d.write_misses, l1d.dirty_evict_count, unit_to_string(l1d.active_time, 's').c_str(), unit_to_string(l1d.calc_energy(), 'J').c_str(),
-        l1i.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses, l1i.dirty_evict_count, unit_to_string(l1i.active_time, 's').c_str(), unit_to_string(l1i.calc_energy(), 'J').c_str(),
-        l2.read_hits, l2.read_misses, l2.write_hits, l2.write_misses, l2.dirty_evict_count, unit_to_string(l2.active_time, 's').c_str(), unit_to_string(l2.calc_energy(), 'J').c_str(),
-        dram.read_hits, dram.read_misses, dram.write_hits, dram.write_misses, dram.dirty_evict_count, unit_to_string(dram.active_time, 's').c_str(), unit_to_string(dram.calc_energy(), 'J').c_str()
+        l1d.read_hits, l1d.read_misses, l1d.write_hits, l1d.write_misses, l1d.dirty_evict_count, unit_to_string(l1d.active_time, 's', -12).c_str(), unit_to_string(l1d.calc_energy(), 'J', -15).c_str(),
+        l1i.read_hits, l1i.read_misses, l1i.write_hits, l1i.write_misses, l1i.dirty_evict_count, unit_to_string(l1i.active_time, 's', -12).c_str(), unit_to_string(l1i.calc_energy(), 'J', -15).c_str(),
+        l2.read_hits, l2.read_misses, l2.write_hits, l2.write_misses, l2.dirty_evict_count, unit_to_string(l2.active_time, 's', -12).c_str(), unit_to_string(l2.calc_energy(), 'J', -15).c_str(),
+        dram.read_hits, dram.read_misses, dram.write_hits, dram.write_misses, dram.dirty_evict_count, unit_to_string(dram.active_time, 's', -12).c_str(), unit_to_string(dram.calc_energy(), 'J', -15).c_str()
     );
     return 0;
 }

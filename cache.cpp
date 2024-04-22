@@ -6,6 +6,7 @@
 #include <new>
 #include <queue>
 #include <utility>
+#include <cassert>
 
 #ifndef NDEBUG
 static u32 evict_index = 0;
@@ -16,7 +17,7 @@ Line::Line() : metadata(0) {}
 void Line::set_metadata_bit(u8 pos, bool value) {
     u64 mask = ~(1UL << pos);
     this->metadata &= mask; 
-    this->metadata |= (u64) value << pos;
+    this->metadata |= static_cast<u64>(value) << pos;
     return;
 }
 
@@ -61,10 +62,10 @@ void Line::set_tag(u64 tag) {
 
 void Line::set_metadata(u64 tag, bool is_valid, bool is_dirty, bool is_in_flight) {
     this->metadata = 
-        ((u64)is_valid << VALID_BIT) | 
-        ((u64)is_dirty << DIRTY_BIT) | 
-        ((u64)is_in_flight << IN_FLIGHT_BIT) | 
-        (tag & ~(1UL << (MAX_TAG_SIZE - 1)));
+        (static_cast<u64>(is_valid) << VALID_BIT) | 
+        (static_cast<u64>(is_dirty) << DIRTY_BIT) | 
+        (static_cast<u64>(is_in_flight) << IN_FLIGHT_BIT) | 
+        (tag & (1UL << (MAX_TAG_SIZE - 1)));
     return;
 }
 
@@ -83,6 +84,7 @@ Cache::Cache(u64 capacity, u64 associativity, u64 block_size, Time latency,
     , parent(parent)
     , flags(flags)
     , machine(machine)
+    , active_time(0)
     , in_flight_count(0)
     , dirty_evict_count(0)
     , read_hits(0)
@@ -122,22 +124,29 @@ const Line& Cache::read(const address addr)
 {
     const u64 set_index = (addr >> this->block_bits) & ((1UL << (this->set_bits)) - 1);
     const u64 tag = addr >> (this->set_bits + this->block_bits);
+
+    // Dram condition
     const bool is_dram = !this->parent;
+    // if (is_dram) {
+    //     this->read_hits++;
+    //     this->lines[set_index].set_metadata(tag, true, false, false);
+    //     this->active_time += this->latency;
+    //     this->machine.advanceTime(this->latency);
+    //     return this->lines[set_index];
+    // }
 
     // Hit condition
     for (u64 i = 0; i < this->associativity; i++) {
         Line& cur_line = this->lines[set_index*this->associativity + i];
-        const bool is_hit = is_dram || (cur_line.is_valid() && cur_line.get_tag() == tag);
-        if (is_hit) {
+        const bool is_hit = (cur_line.is_valid() && cur_line.get_tag() == tag);
+        if (is_dram || is_hit) {
             this->read_hits++;
+            // Wait for line to be ready
             if (cur_line.is_in_flight()) {
                 this->machine.wait_for_line(this, cur_line.get_tag(), set_index);
             } 
-            if (this->in_flight_count == 0) {
-                this->active_time += latency;
-            } else {
-                this->machine.advanceTime(latency);
-            }
+            // Then perform read
+            this->machine.advance_time(this->latency, this);
             return cur_line;
         }
     }
@@ -146,6 +155,7 @@ const Line& Cache::read(const address addr)
     this->read_misses++;
     const Line& read_line = this->parent->read(addr);
     const Line& replaced_line = this->put(read_line, addr);
+    this->machine.advance_time(this->latency, this);
     return replaced_line;
 }
 
@@ -158,7 +168,7 @@ const Line& Cache::write(const address addr, value val)
     // Base case
     const bool is_dram = !this->parent;
     if (is_dram) {
-        write_hits++;
+        this->write_hits++;
         // Ensure that a DRAM line is always clean, valid, and not in flight.
         lines[set_index].set_metadata(0, true, false, false);
         return lines[set_index];
@@ -187,7 +197,7 @@ const Line& Cache::write(const address addr, value val)
     }
     
     this->write_misses++;
-    this->read_misses--; // Remove a read miss to balance out the miss we are about to have
+    this->read_misses--; // Remove a read miss to avoid counting the read miss about to happen
     this->read(addr); // Retrieve the correct line. This handles eviction and such.
     for (size_t i = 0; i < this->associativity; i++) {
         Line& cur_line = lines[set_index*associativity + i];
@@ -256,7 +266,8 @@ const Line& Cache::put(const Line& line, address addr, value val)
     return *victim_line;
 }
 
-Time Cache::calc_energy() {
+// Returns energy in femtoJoules. (due to picoseconds * milliwatts
+Joule Cache::calc_energy() {
     Joule static_energy = this->active_time * this->idle_power;
     Joule active_energy = this->active_time * this->active_time;
     u64 total_accesses = this->read_hits + this->read_misses + this->write_hits + this->write_misses;
@@ -326,17 +337,25 @@ Machine::Machine() : time(0), in_flight_queue(time), caches(), waited_this_acces
 
 // Advance the time of the machine, while updating the active times of any
 // caches which are currently waiting on a writeback
-void Machine::advanceTime(const Time duration) {
+void Machine::advance_time(const Time duration, Cache* active_cache) {
     const Time advanced_time = this->time + duration;
     while (!this->in_flight_queue.empty() && this->in_flight_queue.top().finish_time <= advanced_time) {
         const InFlightData& next = this->in_flight_queue.top();
+        const Time delta = next.finish_time - this->time;
+        assert(delta >= 0);
         // Advance active time for all active caches
         for (Cache* cache : this->caches) {
             if (cache->in_flight_count > 0) {
-                cache->active_time += next.finish_time - this->time;
+                cache->active_time += delta;
             }
         }
-        this->time += next.finish_time - this->time;
+        if (active_cache) {
+            const bool active_time_updated_already = active_cache->in_flight_count > 0;
+            if (!active_time_updated_already) {
+                active_cache->active_time += delta;
+            }
+        }
+        this->time += delta;
         // Update metadata for cache line
         next.dst_line.set_in_flight(false);
         next.parent_cache->in_flight_count -= 1;
@@ -344,10 +363,18 @@ void Machine::advanceTime(const Time duration) {
         this->in_flight_queue.pop();
     }
 
+    // Update all active caches, even though this may not result in new data
     const Time delta = advanced_time - this->time;
+    assert(delta >= 0);
     for (Cache* cache : this->caches) {
         if (cache->in_flight_count > 0) {
             cache->active_time += delta; 
+        }
+    }
+    if (active_cache) {
+        const bool active_time_updated_already = active_cache->in_flight_count > 0;
+        if (!active_time_updated_already) {
+            active_cache->active_time += delta;
         }
     }
     this->time += delta;
@@ -369,13 +396,14 @@ void Machine::wait_for_line(Cache* cache, u64 tag, u64 set_index) {
         last_set_index = top.dst_set_index;
         last_cache = top.parent_cache;
 
-        this->advanceTime(top.finish_time - this->time);
+        this->advance_time(top.finish_time - this->time);
     } while (tag != last_tag || set_index != last_set_index || cache != last_cache);
 }
 
 char calc_prefix(s8 exponent) {
     char prefix;
     switch (exponent) {
+        case -15: prefix = 'f'; break;
         case -12: prefix = 'p'; break;
         case -9: prefix = 'n'; break;
         case -6: prefix = 'u'; break;
@@ -390,15 +418,14 @@ char calc_prefix(s8 exponent) {
     return prefix;
 }
 
-std::string unit_to_string(u64 value, char unit) {
-    s8 exponent = -12; // All nums have min resolution of 1 pico
+std::string unit_to_string(u64 value, char unit, s8 initial_exponent) {
     u64 divisor = 1;
     while ((value / divisor) > 1000) {
-        exponent += 3;
+        initial_exponent += 3;
         divisor *= 1000;
     }
 
-    char prefix = calc_prefix(exponent);
+    char prefix = calc_prefix(initial_exponent);
     u64 significand = value / divisor;
     u64 mantissa    = value % divisor;
     return std::to_string(significand) + '.' + std::to_string(mantissa) + ' ' + prefix + unit;

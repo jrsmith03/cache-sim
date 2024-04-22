@@ -14,15 +14,12 @@ using Time = u64;
 #define ms(num) (us(num)*1000UL)
 #define s(num) (ms(num)*1000UL)
 
-// Watts have a resolution of 1 picosecond, and should be set via a macro.
+// Watts have a resolution of 1 milliWatt. Watts are defined via a ratio.
 using Watt = u64;
-#define pW(num) (num)
-#define nW(num) (pW(num)*1000UL)
-#define uW(num) (nW(num)*1000UL)
-#define mW(num) (uW(num)*1000UL)
+#define mW(num) (num)
 #define W(num) (mW(num)*1000UL)
 
-// Joules have a resolution of 1 picosecond, and should be set via a macro.
+// Joules have a resolution of 1 picojoule, and should be set via a macro.
 using Joule = u64;
 #define pJ(num) (num)
 #define nJ(num) (pJ(num)*1000UL)
@@ -163,8 +160,8 @@ struct Machine {
     bool waited_this_access;
 
     Machine();
-    void advanceTime(Time duration);
+    void advance_time(Time duration, Cache* active_cache = nullptr);
     void wait_for_line(Cache* cache, u64 tag, u64 set_index);
 };
 
-std::string unit_to_string(u64 num, char unit);
+std::string unit_to_string(u64 value, char unit, s8 initial_exponent);
