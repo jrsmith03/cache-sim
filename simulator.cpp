@@ -14,11 +14,15 @@ int main(int argc, char* argv[]) {
         printf("Usage: csim -f <required, file name of trace> \n-a <associativity level, leave blank for default>\n");
         return -1;
     } else if (argc == 2 || argc == 4) {
-        printf("Usage: csim -f <required, file name of trace> \n-a <associativity level, leave blank for default>\n");
+        printf("Usage: csim -f <required, file name of trace> \n-a <associativity level; 2, 4, or 8; blank for default>\n");
         return -1;
     } else {
         if (argc == 5 && strncmp(argv[3], "-a", 3) == 0) {
             has_custom_assoc = true;
+            if (strlen(argv[4]) > 1) {
+                printf("error: please give an associativity from 1 to 8\n");
+                return -1;
+            }
             custom_assoc =  atoi(argv[4]);
         }
     } 
@@ -123,6 +127,7 @@ int main(int argc, char* argv[]) {
         unit_to_string(total_time, 's', -12).c_str(),
         unit_to_string(total_energy, 'J', -15).c_str()
     );
+    printf("File: %s\nL1 associativity: %d\nL2 associativity: %d\nDRAM associativity: %d\n\n", argv[2], a_regular, a_special, a_regular);
     printf("\
 Cache    RHits   RMiss   WHits   WMiss Dirty_Evicts                  Time_Active                  Energy_Used\n\
 L1d    %7lu %7lu %7lu %7lu %12lu %28s %28s\n\

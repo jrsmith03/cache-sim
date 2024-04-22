@@ -12,5 +12,6 @@
 - Flags
   - -f <file name of the trace to run csim on>
   - -a <custom cache associativity level; note- this applies across all memory levels>
+- The default associativity is 1 for L1, 4 for L2, and 1 for DRAM. The user can specify a value from 1 to 8 for further experiments.
 
 - Run the run.sh file to print the output of all trace files automatically.
