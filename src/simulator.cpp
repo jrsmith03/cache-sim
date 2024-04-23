@@ -4,6 +4,8 @@
 #include "simulator.hpp"
 #include <string>
 #include <cstring>
+#include <iostream>
+#include <fstream>
 
 
 int custom_assoc = 0;   
@@ -27,8 +29,7 @@ int main(int argc, char* argv[]) {
         }
     } 
     
-    int a_special =  has_custom_assoc ? custom_assoc : 4; 
-    int a_regular = has_custom_assoc ? custom_assoc : 1; 
+    int a_l2 =  has_custom_assoc ? custom_assoc : 4; 
     
     Trace trace(argv[2]);
 
@@ -51,10 +52,10 @@ int main(int argc, char* argv[]) {
     CacheFlags l2_flags = CacheFlagBits::ASYNC_WRITE | CacheFlagBits::WRITE_BACK;
     CacheFlags l1_flags = CacheFlagBits::SYNC_WRITE | CacheFlagBits::WRITE_THROUGH;
 
-    Cache dram = Cache(GiB(8), a_regular, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, machine, nullptr);
-    Cache l2 = Cache(KiB(256), a_special, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, machine, &dram);
-    Cache l1d = Cache(KiB(32), a_regular, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
-    Cache l1i = Cache(KiB(32), a_regular, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
+    Cache dram = Cache(GiB(8), 1, 64, dram_time_penalty, mW(800), W(4), dram_transfer_penalty, dram_flags, machine, nullptr);
+    Cache l2 = Cache(KiB(256), a_l2, 64, l2_time_penalty, mW(800), W(2), l2_transfer_penalty, l2_flags, machine, &dram);
+    Cache l1d = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
+    Cache l1i = Cache(KiB(32), 1, 64, l1_time_penalty, mW(500), W(1), l1_transfer_penalty, l1_flags, machine, &l2);
 
     machine.caches.push_back(&dram);
     machine.caches.push_back(&l2);
@@ -123,11 +124,23 @@ int main(int argc, char* argv[]) {
     for (Cache* cache : machine.caches) {
         total_energy += cache->calc_energy();
     }
-    printf("Run complete!\nTime: %s\nEnergy: %s\n\n", 
+    // Note that you'd have to manually flush out the results. We want it to be a running average for data collection!
+    // Line 129 was written by Google Bard.
+    std::ofstream result_csv("results.csv", std::ios::app);
+    result_csv << "File: " << argv[2] << " assoc: " << a_l2 << "\n";
+
+    result_csv << "Time: " << unit_to_string(total_time, 's', -12).c_str() << "\n";
+    result_csv << "Energy: " << unit_to_string(total_energy, 'J', -15).c_str() << "\n";
+    result_csv << "Cache, RHits, RMiss, WHits, WMiss, Dirty_Evicts, Time_Active, Energy_Used\n";
+    result_csv << "L1d," << l1d.read_hits << "," << l1d.read_misses << "," << l1d.write_hits << "," << l1d.write_misses << "," << l1d.dirty_evict_count << "," << unit_to_string(l1d.active_time, 's', -12).c_str() << "," << unit_to_string(l1d.calc_energy(), 'J', -15).c_str() << "\n";
+    result_csv << "L1i," << l1i.read_hits << "," << l1i.read_misses << "," << l1i.write_hits << "," << l1i.write_misses << "," << l1i.dirty_evict_count << "," << unit_to_string(l1i.active_time, 's', -12).c_str() << "," << unit_to_string(l1i.calc_energy(), 'J', -15).c_str()<< "\n";
+    result_csv << "L2," << l1i.read_hits << "," << l1i.read_misses << "," << l1i.write_hits << "," << l1i.write_misses << "," << l1i.dirty_evict_count << "," << unit_to_string(l1i.active_time, 's', -12).c_str() << "," << unit_to_string(l1i.calc_energy(), 'J', -15).c_str()<< "\n";
+    result_csv << "DRAM," << dram.read_hits << "," << dram.read_misses << "," << dram.write_hits << "," << dram.write_misses << "," << dram.dirty_evict_count << "," << unit_to_string(dram.active_time, 's', -12).c_str() << "," << unit_to_string(dram.calc_energy(), 'J', -15).c_str()<< "\n";
+    printf("\nRun complete!\nTime: %s\nEnergy: %s\n\n", 
         unit_to_string(total_time, 's', -12).c_str(),
         unit_to_string(total_energy, 'J', -15).c_str()
     );
-    printf("File: %s\nL1 associativity: %d\nL2 associativity: %d\nDRAM associativity: %d\n\n", argv[2], a_regular, a_special, a_regular);
+    printf("File: %s\nL2 associativity: %d\n", argv[2], a_l2);
     printf("\
 Cache    RHits   RMiss   WHits   WMiss Dirty_Evicts                  Time_Active                  Energy_Used\n\
 L1d    %7lu %7lu %7lu %7lu %12lu %28s %28s\n\

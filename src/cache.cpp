@@ -332,10 +332,6 @@ InFlightData::InFlightData(const InFlightData& rhs)
     , dst_set_index(rhs.dst_set_index)
     , finish_time(rhs.finish_time) {}
 
-// Time InFlightData::operator-(const InFlightData& rhs) const {
-//     return this->finish_time - rhs.finish_time;
-// }
-
 Machine::Machine() : time(0), in_flight_queue(time), caches(), waited_this_access(false) {}
 
 // Advance the time of the machine, while updating the active times of any
@@ -428,8 +424,9 @@ std::string unit_to_string(u64 value, char unit, s8 initial_exponent) {
         divisor *= 1000;
     }
 
-    char prefix = calc_prefix(initial_exponent);
+    // char prefix = calc_prefix(initial_exponent);
     u64 significand = value / divisor;
     u64 mantissa    = value % divisor;
-    return std::to_string(significand) + '.' + std::to_string(mantissa) + ' ' + prefix + unit;
+    return std::to_string(significand) + '.' + std::to_string(mantissa); // please revert
+    // return std::to_string(significand) + '.' + std::to_string(mantissa) + ' ' + prefix + unit;
 }

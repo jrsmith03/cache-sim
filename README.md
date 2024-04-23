@@ -5,7 +5,7 @@
 
 ## Compilation
 - All source code is located in the `src` directory.
-- The code can be compiled by entering `src` and executing the `make release` command, which produces the `./csim` binary. The binary will be located in the root directory.
+- The code can be compiled by entering `src` and executing the `make` command, which produces the `./csim` binary. The binary will be located in the root directory.
 - Run `make release` to compile without any extra console logging.
 - Run `make debug` to compile with added logging and predictable eviction scheme (always choose first set to evict)
 
@@ -14,6 +14,7 @@
   - `-f` (file name of the trace to run csim on)
   - `-a` (custom cache associativity level; note- this applies across all memory levels)
 - The default associativity is 1 for L1, 4 for L2, and 1 for DRAM. The user can specify a value from 1 to 8 for further experiments.
+- The Traces are included with our submission. The script will work as long as the path to a different traces folder is specified. The individual traces can be either compressed or uncompressed, but we are assuming that the Traces folder itself is uncompressed.
 
 ### Run the `run.sh` script to print the output of all trace files automatically.
 - The script will ask for the path to the trace files. If you do not uncompress the files, the script will do this automatically.
